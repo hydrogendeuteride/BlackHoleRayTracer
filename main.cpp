@@ -59,7 +59,7 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
 
-    Shader shader("../shader/vert.glsl", "../shader/blackhole.glsl");
+    Shader shader("../shader/blackhole.vert", "../shader/blackhole.frag");
 
     while (!glfwWindowShouldClose(window))
     {
