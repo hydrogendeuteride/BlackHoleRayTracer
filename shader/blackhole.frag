@@ -1,4 +1,4 @@
-#version 330
+#version 330 core
 
 uniform vec2 resolution;
 uniform float mouseX;
@@ -6,15 +6,18 @@ uniform float mouseY;
 
 uniform float fovScale = 1.0;
 
+uniform float time;
+
 uniform float diskHeight = 0.2;
 uniform float diskDensityV = 1.0;
 uniform float diskDensityH = 1.0;
 uniform float diskNoiseScale = 1.0;
+uniform float diskSpeed = 0.5;
 
 uniform int diskNoiseLOD = 5;
 
 float cameraRoll = 0.0;
-float step = 0.01;
+float steps = 0.01;
 
 int iteration = 512;
 
@@ -97,8 +100,8 @@ float snoise(vec3 v){
 
 vec3 toSpherical(vec3 pos){
     float rho = sqrt((pos.x * pos.x) + (pos.y * pos.y) + (pos.z * pos.z));
-    float theta = atan(p.z, p.x);
-    float phi = asin(p.y /rho);
+    float theta = atan(pos.z, pos.x);
+    float phi = asin(pos.y /rho);
     return vec3(rho, theta, phi);
 }
 
@@ -130,8 +133,17 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha){
 
     float noise = 1.0;
     for (int i = 0; i < diskNoiseLOD; ++i){
-        noise *= 0.5 * snoise(sphericalCoord * pow(i * 2) * diskNoiseScale) + 0.5;
+        noise *= 0.5 * snoise(sphericalCoord * pow(i, 2) * diskNoiseScale) + 0.5;
+        if (i % 2 == 0) {
+            sphericalCoord.y += time * diskSpeed;
+        } else {
+            sphericalCoord.y -= time * diskSpeed;
+        }
     }
+
+    vec3 dustColor = vec3(1.0, 1.0, 1.0);
+
+    color += density * dustColor * alpha * abs(noise);
 }
 
 mat3 lookat(vec3 origin, vec3 target, float roll) {
@@ -163,17 +175,20 @@ vec3 rayMarch(vec3 pos, vec3 dir) {
     vec3 color = vec3(0.0);
     float alpha = 1.0;
 
+    float STEPSIZE = 0.1;
+    dir *= STEPSIZE;
+
     vec3 h = cross(pos, dir);
     float h2 = dot(h, h);
 
     for (int i = 0; i < iteration; ++i){
-        verlet(pos, h2, dir, step);
+        verlet(pos, h2, dir, steps);
 
         if (dot(pos, pos) < 1.0){
             return color;
         }
 
-
+        diskRender(pos, color, alpha);
     }
 
     return color;
