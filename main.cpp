@@ -48,8 +48,6 @@ int main()
     }
 
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-
     glfwSetCursorPosCallback(window, mouseCallback);
     glfwSetFramebufferSizeCallback(window, frameBufferSizeCallback);
 
@@ -58,6 +56,8 @@ int main()
         std::cout << "Failed to initialize GLAD" << std::endl;
         std::exit(EXIT_FAILURE);
     }
+
+    glEnable(GL_DEPTH_TEST);
 
     std::vector<float> vertices = {
             //pos
@@ -83,30 +83,36 @@ int main()
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof (float), static_cast<void*>(vertices.data()), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies.size() * sizeof (float), static_cast<void*>(indicies.data()), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies.size() * sizeof (unsigned int), static_cast<void*>(indicies.data()), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof (float), (void*)0 );
     glEnableVertexAttribArray(0);
-
-    glEnable(GL_DEPTH_TEST);
-
-    glBindVertexArray(VAO);
 
     Shader shader("../shader/blackhole.vert", "../shader/blackhole.frag");
 
     shader.setVec2("resolution", 1920.0f, 1080.0f);
 
+
+    float lastTime = 0.0f;
+    float currentTime = 0.0f;
+    float fps = 0.0f;
     while (!glfwWindowShouldClose(window))
     {
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shader.setFloat("time", (float )glfwGetTime());
-        shader.setFloat("mouseX", mouseX);
-        shader.setFloat("mouseX", mouseY);
+        currentTime = (float )glfwGetTime();
+        fps = 1.0f / (currentTime - lastTime);
+        lastTime = currentTime;
+        std::cout << fps << "\n";
 
         shader.use();
+        shader.setVec2("resolution", 1920.0f, 1080.0f);
+        shader.setFloat("time", (float )glfwGetTime());
+        shader.setFloat("mouseX", mouseX);
+        shader.setFloat("mouseY", mouseY);
 
+        glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
