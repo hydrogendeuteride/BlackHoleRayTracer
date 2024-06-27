@@ -19,6 +19,10 @@ float steps = 1.0;
 
 int iteration = 512;
 
+const float G = 1.0;
+const float M = 1.0;
+const float c = 1.0;
+
 layout (location = 0) out vec4 fragColor;
 
 //	Simplex 3D Noise
@@ -103,8 +107,49 @@ vec3 toSpherical(vec3 pos){
     return vec3(rho, theta, phi);
 }
 
-void diskRender(vec3 pos, inout vec3 color, inout float alpha){
-    float innerRadius = 2.6;
+float calculateRedShift(vec3 pos)
+{
+    float dist = sqrt(dot(pos, pos));
+    if (dist < 1.0f)
+    {
+        return 0.0f;
+    }
+    float redshift = sqrt(1.0f - 1.0f/dist) - 1.0f;
+    return redshift;
+}
+
+float calculateDopplerEffect(vec3 pos, vec3 obspos, vec3 obsvel)
+{
+    vec3 vel;
+    float r = length(pos);
+    if (r < 1.0)
+    {
+        vel = vec3(0.0f);
+        return 1.0f;
+    }
+
+    float velMag = sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));
+    vec3 velDir = normalize(cross(vec3(0.0, 0.0, 1.0), pos));
+    vel = velDir * velMag;
+
+    vec3 relativePos = obspos - pos;
+    vec3 relativeVel = vel - obsvel;
+
+    float gamma_o = 1.0 / sqrt(1.0 - dot(obsvel, obsvel));
+    float gamma_s = 1.0 / sqrt(1.0 - dot(vel, vel));
+
+    vec3 d_o = normalize(relativePos);
+    vec3 d_s = -normalize(relativePos);
+
+    float v_o = dot(obsvel, d_o);
+    float v_s = dot(vel, d_s);
+
+    float doppler = gamma_o * gamma_s * (1.0 - v_o) * (1.0 + v_s);
+    return doppler;
+}
+
+void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 obspos, vec3 obsvel){
+    float innerRadius = 2.5;
     float outerRadius = 8.0;
 
     float density = max(0.0, 1.0 - length(pos.xyz / vec3(outerRadius, diskHeight, outerRadius)));
@@ -141,7 +186,13 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha){
 
     vec3 dustColor = vec3(0.01, 0.01, 0.01);
 
+    float redshift = calculateRedShift(pos);
+    float doppler = calculateDopplerEffect(pos, obspos, obsvel);
+
     color += density * dustColor * alpha * abs(noise);
+
+    color *= 1 / (1.0 + redshift);
+//    color *= 1 / (1.0 + doppler);
 }
 
 mat3 lookat(vec3 origin, vec3 target, float roll) {
@@ -169,7 +220,7 @@ void verlet(inout vec3 pos, float h2, inout vec3 dir, float dt){
     pos = pos_new;
 }
 
-vec3 rayMarch(vec3 pos, vec3 dir) {
+vec3 rayMarch(vec3 pos, vec3 dir, vec3 obspos, vec3 obsvel) {
     vec3 color = vec3(0.0);
     float alpha = 1.0;
 
@@ -186,8 +237,7 @@ vec3 rayMarch(vec3 pos, vec3 dir) {
             return color;
         }
 
-        diskRender(pos, color, alpha);
-
+        diskRender(pos, color, alpha, obspos, obsvel);
     }
 
     return color;
@@ -212,5 +262,6 @@ void main(){
 
     dir = view * dir;
 
-    fragColor.rgb = rayMarch(pos, dir);
+    vec3 vel = vec3(0.0, 0.0, 0.0);
+    fragColor.rgb = rayMarch(pos, dir, pos, vel);
 }
