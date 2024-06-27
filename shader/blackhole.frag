@@ -118,7 +118,7 @@ float calculateRedShift(vec3 pos)
     return redshift;
 }
 
-float calculateDopplerEffect(vec3 pos, vec3 obspos, vec3 obsvel)
+float calculateDopplerEffect(vec3 pos, vec3 obspos)
 {
     vec3 vel;
     float r = length(pos);
@@ -133,24 +133,22 @@ float calculateDopplerEffect(vec3 pos, vec3 obspos, vec3 obsvel)
     vel = velDir * velMag;
 
     vec3 relativePos = obspos - pos;
-    vec3 relativeVel = vel - obsvel;
+    vec3 beta_s = vel / c;
 
-    float gamma_o = 1.0 / sqrt(1.0 - dot(obsvel, obsvel));
-    float gamma_s = 1.0 / sqrt(1.0 - dot(vel, vel));
+    vec3 lineOfSight = normalize(relativePos);
+    //TODO: ERROR. line of sight should be ray direction
+    float cosTheta = dot(beta_s, lineOfSight);
 
-    vec3 d_o = normalize(relativePos);
-    vec3 d_s = -normalize(relativePos);
+    float beta = length(beta_s);
+    float gamma = 1.0 / sqrt(1.0 - beta * beta);
+    float dopplerShift = (1.0 - beta * cosTheta) / gamma;
 
-    float v_o = dot(obsvel, d_o);
-    float v_s = dot(vel, d_s);
-
-    float doppler = gamma_o * gamma_s * (1.0 - v_o) * (1.0 + v_s);
-    return doppler;
+    return dopplerShift;
 }
 
-void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 obspos, vec3 obsvel){
-    float innerRadius = 2.5;
-    float outerRadius = 8.0;
+void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 obspos){
+    float innerRadius = 3.0;
+    float outerRadius = 9.0;
 
     float density = max(0.0, 1.0 - length(pos.xyz / vec3(outerRadius, diskHeight, outerRadius)));
 
@@ -187,12 +185,12 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 obspos, vec3
     vec3 dustColor = vec3(0.01, 0.01, 0.01);
 
     float redshift = calculateRedShift(pos);
-    float doppler = calculateDopplerEffect(pos, obspos, obsvel);
+    float doppler = calculateDopplerEffect(pos, obspos);
 
     color += density * dustColor * alpha * abs(noise);
 
-    color *= 1 / (1.0 + redshift);
-//    color *= 1 / (1.0 + doppler);
+//    color *= 1 / (1.0 + redshift);
+    color /= doppler * doppler * doppler;
 }
 
 mat3 lookat(vec3 origin, vec3 target, float roll) {
@@ -220,7 +218,7 @@ void verlet(inout vec3 pos, float h2, inout vec3 dir, float dt){
     pos = pos_new;
 }
 
-vec3 rayMarch(vec3 pos, vec3 dir, vec3 obspos, vec3 obsvel) {
+vec3 rayMarch(vec3 pos, vec3 dir, vec3 obspos) {
     vec3 color = vec3(0.0);
     float alpha = 1.0;
 
@@ -237,7 +235,7 @@ vec3 rayMarch(vec3 pos, vec3 dir, vec3 obspos, vec3 obsvel) {
             return color;
         }
 
-        diskRender(pos, color, alpha, obspos, obsvel);
+        diskRender(pos, color, alpha, obspos);
     }
 
     return color;
@@ -262,6 +260,5 @@ void main(){
 
     dir = view * dir;
 
-    vec3 vel = vec3(0.0, 0.0, 0.0);
-    fragColor.rgb = rayMarch(pos, dir, pos, vel);
+    fragColor.rgb = rayMarch(pos, dir, cameraPos);
 }
