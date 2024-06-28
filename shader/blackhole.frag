@@ -23,6 +23,7 @@ const float G = 1.0;
 const float M = 1.0;
 const float c = 1.0;
 
+
 layout (location = 0) out vec4 fragColor;
 
 //	Simplex 3D Noise
@@ -118,7 +119,7 @@ float calculateRedShift(vec3 pos)
     return redshift;
 }
 
-float calculateDopplerEffect(vec3 pos, vec3 obspos)
+float calculateDopplerEffect(vec3 pos, vec3 lightDir)
 {
     vec3 vel;
     float r = length(pos);
@@ -132,21 +133,16 @@ float calculateDopplerEffect(vec3 pos, vec3 obspos)
     vec3 velDir = normalize(cross(vec3(0.0, 0.0, 1.0), pos));
     vel = velDir * velMag;
 
-    vec3 relativePos = obspos - pos;
     vec3 beta_s = vel / c;
-
-    vec3 lineOfSight = normalize(relativePos);
-    //TODO: ERROR. line of sight should be ray direction
-    float cosTheta = dot(beta_s, lineOfSight);
 
     float beta = length(beta_s);
     float gamma = 1.0 / sqrt(1.0 - beta * beta);
-    float dopplerShift = (1.0 - beta * cosTheta) / gamma;
+    float dopplerShift = gamma * (1.0 + dot(vel, lightDir));
 
     return dopplerShift;
 }
 
-void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 obspos){
+void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 lightDir){
     float innerRadius = 3.0;
     float outerRadius = 9.0;
 
@@ -185,11 +181,11 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 obspos){
     vec3 dustColor = vec3(0.01, 0.01, 0.01);
 
     float redshift = calculateRedShift(pos);
-    float doppler = calculateDopplerEffect(pos, obspos);
+    float doppler = calculateDopplerEffect(pos, lightDir);
 
     color += density * dustColor * alpha * abs(noise);
 
-//    color *= 1 / (1.0 + redshift);
+    color *= 1 / (1.0 + redshift);
     color /= doppler * doppler * doppler;
 }
 
@@ -218,7 +214,7 @@ void verlet(inout vec3 pos, float h2, inout vec3 dir, float dt){
     pos = pos_new;
 }
 
-vec3 rayMarch(vec3 pos, vec3 dir, vec3 obspos) {
+vec3 rayMarch(vec3 pos, vec3 dir) {
     vec3 color = vec3(0.0);
     float alpha = 1.0;
 
@@ -235,7 +231,7 @@ vec3 rayMarch(vec3 pos, vec3 dir, vec3 obspos) {
             return color;
         }
 
-        diskRender(pos, color, alpha, obspos);
+        diskRender(pos, color, alpha, dir);
     }
 
     return color;
@@ -260,5 +256,5 @@ void main(){
 
     dir = view * dir;
 
-    fragColor.rgb = rayMarch(pos, dir, cameraPos);
+    fragColor.rgb = rayMarch(pos, dir);
 }
