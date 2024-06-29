@@ -25,9 +25,8 @@ const float c = 1.0;
 
 const float TEMP_RANGE = 39000.0; //1000K~40000K
 
-layout (location = 0) out vec4 fragColor;
+out vec4 fragColor;
 
-in vec2 TexCoord;
 uniform sampler2D blackbody;
 
 //	Simplex 3D Noise
@@ -112,11 +111,11 @@ vec3 toSpherical(vec3 pos){
     return vec3(rho, theta, phi);
 }
 
-vec3 getBlackBodyColor(float temp)
+vec4 getBlackBodyColor(float temp)
 {
     float x_coord = clamp((temp - 1000) / TEMP_RANGE, 0.0, 1.0);
-    vec2 texCoord = vec2(x_coord, 1.0);
-    vec3 color = texture2D(blackbody, texCoord).rgb;
+    vec2 texCoord = vec2(x_coord, 0.5);
+    vec4 color = texture2D(blackbody, texCoord);
     return color;
 }
 
@@ -193,10 +192,10 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 viewDir){
     float redshift = calculateRedShift(pos);
     float doppler = calculateDopplerEffect(pos, viewDir);
 
-    float accretionTemp = 4000;
-    accretionTemp /= doppler;
+    float accretionTemp = 6500;
+    accretionTemp *= doppler;
 
-//    vec3 dustColor = getBlackBodyColor(accretionTemp) * 0.01;
+//    vec3 dustColor = getBlackBodyColor(accretionTemp);
     vec3 dustColor = vec3(0.01, 0.01, 0.01);
 
     color += density * dustColor * alpha * abs(noise);

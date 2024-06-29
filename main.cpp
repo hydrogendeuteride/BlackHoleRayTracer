@@ -107,7 +107,7 @@ int main()
     unsigned char* data = stbi_load("../image/blackbody.png", &w, &h, &ch, 0);
     if (data)
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     else
@@ -136,8 +136,8 @@ int main()
         shader.setFloat("mouseY", mouseY);
 
         glBindVertexArray(VAO);
-        glBindTexture(GL_TEXTURE_2D, texture);
         shader.setInt("blackbody", 0);
+        glBindTexture(GL_TEXTURE_2D, texture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
