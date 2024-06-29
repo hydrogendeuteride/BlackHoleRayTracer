@@ -23,8 +23,12 @@ const float G = 1.0;
 const float M = 1.0;
 const float c = 1.0;
 
+const float TEMP_RANGE = 39000.0; //1000K~40000K
 
 layout (location = 0) out vec4 fragColor;
+
+in vec2 TexCoord;
+uniform sampler2D blackbody;
 
 //	Simplex 3D Noise
 //	by Ian McEwan, Ashima Arts
@@ -108,6 +112,14 @@ vec3 toSpherical(vec3 pos){
     return vec3(rho, theta, phi);
 }
 
+vec3 getBlackBodyColor(float temp)
+{
+    float x_coord = clamp((temp - 1000) / TEMP_RANGE, 0.0, 1.0);
+    vec2 texCoord = vec2(x_coord, 1.0);
+    vec3 color = texture2D(blackbody, texCoord).rgb;
+    return color;
+}
+
 float calculateRedShift(vec3 pos)
 {
     float dist = sqrt(dot(pos, pos));
@@ -119,7 +131,7 @@ float calculateRedShift(vec3 pos)
     return redshift;
 }
 
-float calculateDopplerEffect(vec3 pos, vec3 lightDir)
+float calculateDopplerEffect(vec3 pos, vec3 viewDir)
 {
     vec3 vel;
     float r = length(pos);
@@ -129,20 +141,20 @@ float calculateDopplerEffect(vec3 pos, vec3 lightDir)
         return 1.0f;
     }
 
-    float velMag = sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));
-    vec3 velDir = normalize(cross(vec3(0.0, 0.0, 1.0), pos));
+//    float velMag = sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));
+    float velMag = sqrt((G * M / r));
+    vec3 velDir = normalize(cross(vec3(0.0, 1.0, 0.0), pos));
     vel = velDir * velMag;
 
     vec3 beta_s = vel / c;
 
-    float beta = length(beta_s);
-    float gamma = 1.0 / sqrt(1.0 - beta * beta);
-    float dopplerShift = gamma * (1.0 + dot(vel, lightDir));
+    float gamma = 1.0 / sqrt(1.0 - dot(beta_s, beta_s));
+    float dopplerShift = gamma * (1.0 + dot(vel, normalize(viewDir)));
 
     return dopplerShift;
 }
 
-void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 lightDir){
+void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 viewDir){
     float innerRadius = 3.0;
     float outerRadius = 9.0;
 
@@ -178,10 +190,14 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 lightDir){
         }
     }
 
-    vec3 dustColor = vec3(0.01, 0.01, 0.01);
-
     float redshift = calculateRedShift(pos);
-    float doppler = calculateDopplerEffect(pos, lightDir);
+    float doppler = calculateDopplerEffect(pos, viewDir);
+
+    float accretionTemp = 4000;
+    accretionTemp /= doppler;
+
+//    vec3 dustColor = getBlackBodyColor(accretionTemp) * 0.01;
+    vec3 dustColor = vec3(0.01, 0.01, 0.01);
 
     color += density * dustColor * alpha * abs(noise);
 
@@ -219,7 +235,7 @@ vec3 rayMarch(vec3 pos, vec3 dir) {
     float alpha = 1.0;
 
     float STEPSIZE = 0.1;
-    dir *= STEPSIZE;
+    dir *=  STEPSIZE;
 
     vec3 h = cross(pos, dir);
     float h2 = dot(h, h);

@@ -5,6 +5,8 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#define STB_IMAGE_IMPLEMENTATION
+#include "include/stb_image.h"
 
 static constexpr int SCR_WIDTH = 1920;
 static constexpr int SCR_HEIGHT = 1080;
@@ -92,6 +94,27 @@ int main()
 
     shader.setVec2("resolution", 1920.0f, 1080.0f);
 
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    int w, h, ch;
+    unsigned char* data = stbi_load("../image/blackbody.png", &w, &h, &ch, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
 
     float lastTime = 0.0f;
     float currentTime = 0.0f;
@@ -113,6 +136,8 @@ int main()
         shader.setFloat("mouseY", mouseY);
 
         glBindVertexArray(VAO);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        shader.setInt("blackbody", 0);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
