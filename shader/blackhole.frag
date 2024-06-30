@@ -140,8 +140,8 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
         return 1.0f;
     }
 
-//    float velMag = sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));
-    float velMag = sqrt((G * M / r));
+    float velMag = sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));
+//    float velMag = sqrt((G * M / r));
     vec3 velDir = normalize(cross(vec3(0.0, 1.0, 0.0), pos));
     vel = velDir * velMag;
 
@@ -272,4 +272,7 @@ void main(){
     dir = view * dir;
 
     fragColor.rgb = rayMarch(pos, dir);
+
+    float gamma = 2.2;
+    fragColor.rgb = pow(fragColor.rgb, vec3(1.0/gamma));
 }
