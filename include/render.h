@@ -6,15 +6,20 @@
 #include "shader.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <memory>
+#include <functional>
+//#include "texture.h"
 
 class Render
 {
 public:
     Render(int scrWidth, int scrHeight);
 
-    void cameraSetup();
+    void cameraSetup(std::shared_ptr<CameraBase> newCamera);
 
     void draw(Shader rayMarchShader, Shader postProcessShader);
+
+    void setCameraSwitchCallback(std::function<void()> callback);
 
 private:
     void frameBufferSizeCallback(int width, int height);
@@ -27,9 +32,13 @@ private:
 
     void processInput(GLFWwindow *pWindow);
 
+    void initFrameBuffer();
+
+    void initRayMarch();
+
     GLFWwindow *window;
 
-    CameraBase camera;
+    std::shared_ptr<CameraBase> camera;
 
     bool firstMouse = true;
 
@@ -43,6 +52,15 @@ private:
 
     glm::vec2 lastMousePosition;
     bool isDragging = false;
+
+    unsigned int frameBuffer, texColorBuffer, rbo;
+    unsigned int quadVAO, quadVBO, quadEBO;
+
+    unsigned int VBO, VAO, EBO;
+
+    std::function<void()> cameraSwitchCallback;
+
+    unsigned int blackBodyTexture, cubeMapTexture;
 };
 
 #endif //BLACKHOLERAYTRACER_RENDER_H

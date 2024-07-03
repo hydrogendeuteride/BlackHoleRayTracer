@@ -149,10 +149,10 @@ int main()
     }
     stbi_image_free(data);
 
-    shader.use();
+//    shader.use();
     shader.setInt("blackbody", 0);
 
-    fboShader.use();
+//    fboShader.use();
     fboShader.setInt("screenTexture", 0);
 
     //-------------------------------------------------------------------------------------

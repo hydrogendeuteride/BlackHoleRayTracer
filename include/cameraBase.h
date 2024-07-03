@@ -55,18 +55,18 @@ public:
         updateCameraVectors();
     }
 
-    virtual glm::mat4 getViewMatrix();
+    virtual glm::mat4 getViewMatrix() = 0;
 
-    virtual void processKeyboard(CameraMovement direction, float deltaTime);
+    virtual void processKeyboard(CameraMovement direction, float deltaTime) = 0;
 
-    virtual void processMouseMovement(float xOffset, float yOffset);
+    virtual void processMouseMovement(float xOffset, float yOffset) = 0;
 
-    virtual void processMouseScroll(float yOffset);
+    virtual void processMouseScroll(float yOffset) = 0;
 
 protected:
     glm::quat orientation;
 
-    virtual void updateCameraVectors();
+    virtual void updateCameraVectors() = 0;
 };
 
 #endif //BLACKHOLERAYTRACER_CAMERA_H
