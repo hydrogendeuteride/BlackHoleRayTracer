@@ -50,6 +50,8 @@ public:
         updateCameraVectors();
     }
 
+    void processMouseScroll(float yOffset) override{}
+
 protected:
     void updateCameraVectors() override
     {

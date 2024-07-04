@@ -52,7 +52,6 @@ public:
         this->yaw = yaw;
         this->pitch = pitch;
         this->roll = roll;
-        updateCameraVectors();
     }
 
     virtual glm::mat4 getViewMatrix() = 0;

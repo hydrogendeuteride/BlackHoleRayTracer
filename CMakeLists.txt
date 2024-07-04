@@ -19,6 +19,7 @@ add_executable(BlackHoleRayTracer
         src/shader.cpp
         glad/src/glad.c
         src/render.cpp
+        src/texture.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} glfw ${CMAKE_DL_LIBS})

@@ -1,13 +1,13 @@
 #version 330 core
 
 uniform vec2 resolution;
-uniform float mouseX;
-uniform float mouseY;
+//uniform float mouseX;
+//uniform float mouseY;
 
 uniform float time;
 
 //--------------------------
-uniform vec3 cameroPos;
+uniform vec3 cameraPos;
 uniform mat4 view;
 //-------------------------
 

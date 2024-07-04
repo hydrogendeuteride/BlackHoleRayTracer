@@ -9,9 +9,10 @@ public:
     glm::vec3 target;
     float distance;
 
-    OrbitCamera(glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f), float distance = 10.0f,
-                glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH)
-            : CameraBase(target, up, yaw, pitch, 0.0f), target(target), distance(distance)
+    OrbitCamera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
+                glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH,
+                glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f), float distance = 10.0f)
+            : CameraBase(position, up, yaw, pitch, 0.0f), target(target), distance(distance)
     {}
 
     glm::mat4 getViewMatrix() override
@@ -35,6 +36,9 @@ public:
 
         updateCameraVectors();
     }
+
+    void processKeyboard(CameraMovement direction, float deltaTime) override{}
+    void processMouseScroll(float yOffset) override{}
 
 protected:
     void updateCameraVectors() override

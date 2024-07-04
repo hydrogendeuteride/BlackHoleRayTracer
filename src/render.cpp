@@ -62,7 +62,7 @@ Render::Render(int scrWidth, int scrHeight)
 
 void Render::cameraSetup(std::shared_ptr<CameraBase> newCamera)
 {
-    camera = std::move(newCamera);
+    camera = newCamera;
 }
 
 void Render::frameBufferSizeCallback(int width, int height)
@@ -245,10 +245,15 @@ void Render::draw(Shader rayMarchShader, Shader postProcessShader)
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glm::mat4 view = camera->getViewMatrix();
+        glm::vec3 cameraPos = camera->position;
+
         rayMarchShader.use();
         rayMarchShader.setVec2("resolution", 1920.0f, 1080.0f);
         rayMarchShader.setFloat("time", (float )glfwGetTime());
-        //TODO:edit shader not to use mouse coordinates
+
+        rayMarchShader.setMat4("view", view);
+        rayMarchShader.setVec3("cameraPos", cameraPos);
 
         glBindVertexArray(VAO);
         glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
