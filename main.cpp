@@ -3,8 +3,6 @@
 #include "shader.h"
 #include <GLFW/glfw3.h>
 #include <vector>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h"
 

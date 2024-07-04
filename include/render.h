@@ -8,7 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 #include <functional>
-//#include "texture.h"
+#include "texture.h"
 
 class Render
 {
@@ -20,6 +20,8 @@ public:
     void draw(Shader rayMarchShader, Shader postProcessShader);
 
     void setCameraSwitchCallback(std::function<void()> callback);
+
+    void loadTextures(std::string& blackBody);
 
 private:
     void frameBufferSizeCallback(int width, int height);

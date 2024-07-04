@@ -225,6 +225,11 @@ void Render::initRayMarch()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof (float), (void*)0 );
 }
 
+void Render::loadTextures(std::string& blackBody)
+{
+    blackBodyTexture = loadTexture(blackBody);
+}
+
 void Render::draw(Shader rayMarchShader, Shader postProcessShader)
 {
     rayMarchShader.setVec2("resolution", static_cast<float>(SCRWIDTH), static_cast<float>(SCRHEIGHT));
@@ -243,11 +248,10 @@ void Render::draw(Shader rayMarchShader, Shader postProcessShader)
         rayMarchShader.use();
         rayMarchShader.setVec2("resolution", 1920.0f, 1080.0f);
         rayMarchShader.setFloat("time", (float )glfwGetTime());
-        //edit shader not to use mouse coordinate
-        //load textures
+        //TODO:edit shader not to use mouse coordinates
 
         glBindVertexArray(VAO);
-//        glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
+        glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
