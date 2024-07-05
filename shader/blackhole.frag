@@ -1,15 +1,11 @@
 #version 330 core
 
 uniform vec2 resolution;
-//uniform float mouseX;
-//uniform float mouseY;
 
 uniform float time;
 
-//--------------------------
 uniform vec3 cameraPos;
 uniform mat4 view;
-//-------------------------
 
 float diskHeight = 0.2;
 float diskDensityV = 1.0;
@@ -197,11 +193,11 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 viewDir){
     float redshift = calculateRedShift(pos);
     float doppler = calculateDopplerEffect(pos, viewDir);
 
-    float accretionTemp = 6500;
-    accretionTemp *= doppler;
+    float accretionTemp = 3500;
+    accretionTemp /= doppler;
 
-//    vec3 dustColor = getBlackBodyColor(accretionTemp);
-    vec3 dustColor = vec3(0.01, 0.01, 0.01);
+    vec3 dustColor = getBlackBodyColor(accretionTemp *  (1 / (1.0 + redshift))).rgb * 0.005;
+//    vec3 dustColor = vec3(0.01, 0.01, 0.01);
 
     color += density * dustColor * alpha * abs(noise);
 
@@ -258,27 +254,12 @@ vec3 rayMarch(vec3 pos, vec3 dir) {
 }
 
 void main(){
-//    mat3 view;
-//
-//    vec3 cameraPos;
-//    vec2 mouse = clamp(vec2(mouseX, mouseY) / resolution.xy, 0.0, 1.0) - 0.5;
-//    cameraPos = vec3(-cos(mouse.x * 10.0) * 15.0, mouse.y * 30.0,
-//    sin(mouse.x * 10.0) * 15.0);
-//
-//
-//    vec3 target = vec3(0.0, 0.0, 0.0);
-//    view = lookat(cameraPos, target, radians(cameraRoll));
-
     vec2 uv = (2.0 * gl_FragCoord.xy - resolution.xy) / resolution.y;
 
     vec3 dir = normalize(vec3(uv, 1.0));
     vec3 pos = cameraPos;
 
-//    dir = view * dir;
     dir = (view * vec4(dir, 0.0)).xyz;
 
     fragColor.rgb = rayMarch(pos, dir);
-
-    float gamma = 2.2;
-    fragColor.rgb = pow(fragColor.rgb, vec3(1.0/gamma));
 }

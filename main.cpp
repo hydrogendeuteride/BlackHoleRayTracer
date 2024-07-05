@@ -28,18 +28,18 @@ int main()
 
     renderer.cameraSetup(orbitCamera);
 
-//    renderer.setCameraSwitchCallback([&]{
-//        static bool useOrbit = true;
-//        if (useOrbit)
-//        {
-//            renderer.cameraSetup(freeCamera);
-//        }
-//        else
-//        {
-//            renderer.cameraSetup(orbitCamera);
-//        }
-//        useOrbit = !useOrbit;
-//    });
+    renderer.setCameraSwitchCallback([&]{
+        static bool useOrbit = true;
+        if (useOrbit)
+        {
+            renderer.cameraSetup(freeCamera);
+        }
+        else
+        {
+            renderer.cameraSetup(orbitCamera);
+        }
+        useOrbit = !useOrbit;
+    });
 
     renderer.draw(rayMarchShader, postProcessShader);
 
