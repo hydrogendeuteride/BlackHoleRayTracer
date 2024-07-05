@@ -11,12 +11,12 @@ int main()
     Render renderer(SCR_WIDTH, SCR_HEIGHT);
 
     glm::vec3 target = glm::vec3(0.0, 0.0, 0.0);
-    glm::vec3 cameraPos = glm::vec3 (-10.0, 0.0, 0.0);
-    float distance = 10.0;
+    glm::vec3 cameraPos = glm::vec3 (0.0, 0.0, 15.0);
+    float distance = 15.0;
     glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 
     std::shared_ptr<OrbitCamera> orbitCamera =
-            std::make_shared<OrbitCamera>(cameraPos, up, YAW, PITCH, target, distance);
+            std::make_shared<OrbitCamera>(cameraPos, up, YAW, PITCH, target);
     std::shared_ptr<FreeCamera> freeCamera =
             std::make_shared<FreeCamera>(cameraPos, up, YAW, PITCH, ROLL);
 
