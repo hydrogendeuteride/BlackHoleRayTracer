@@ -193,7 +193,7 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 viewDir){
     float redshift = calculateRedShift(pos);
     float doppler = calculateDopplerEffect(pos, viewDir);
 
-    float accretionTemp = 3500;
+    float accretionTemp = 6500;
     accretionTemp /= doppler;
 
     vec3 dustColor = getBlackBodyColor(accretionTemp *  (1 / (1.0 + redshift))).rgb * 0.005;

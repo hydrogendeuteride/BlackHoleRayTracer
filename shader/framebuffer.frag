@@ -4,6 +4,9 @@ out vec4 fragColor;
 in vec2 TexCoord;
 
 uniform sampler2D screenTexture;
+uniform sampler2D bloomBlur;
+
+bool bloom = false;
 
 vec3 ACESFilm(vec3 x) {
     float a = 2.51;
@@ -24,13 +27,24 @@ vec3 HableToneMapping(vec3 x) {
     return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
 }
 
+vec3 ReinhardToneMapping(vec3 color) {
+    return color / (color + vec3(1.0));
+}
+
 void main()
 {
     float gamma = 2.2;
     vec3 hdrColor = texture(screenTexture, TexCoord).rgb;
+    vec3 bloomColor = texture(bloomBlur, TexCoord).rgb;
+
+    if (bloom)
+        hdrColor += bloomColor;
 
 //    vec3 mapped = ACESFilm(hdrColor);         //ACES tone mapping
     vec3 mapped = HableToneMapping(hdrColor);   //Hable tone mapping
+//    vec3 mapped = ReinhardToneMapping(hdrColor);
+//    vec3 mapped = hdrColor/1.0;
+
     mapped = pow(mapped, vec3(1.0 / gamma));
     fragColor = vec4(mapped, 1.0);
 }

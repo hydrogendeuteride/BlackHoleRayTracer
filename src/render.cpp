@@ -228,6 +228,9 @@ void Render::initRayMarch()
 
 void Render::initBloom()
 {
+    glGenFramebuffers(1, &lightFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, lightFBO);
+
     glGenTextures(2, colorBuffers);
 
     for (int i = 0; i < 2; ++i)
@@ -304,11 +307,13 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         //--------------------------------------------------------------------------------------
+        glBindFramebuffer(GL_FRAMEBUFFER, lightFBO);
         brightPassShader.use();
-        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
         glBindVertexArray(quadVAO);
+        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -333,14 +338,21 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         glDisable(GL_DEPTH_TEST);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         postProcessShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+        postProcessShader.setInt("screenTexture", 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorBuffers[!horizontal]);
+        postProcessShader.setInt("bloomBlur", 1);
         glBindVertexArray(quadVAO);
-        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glActiveTexture(GL_TEXTURE0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

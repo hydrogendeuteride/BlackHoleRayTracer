@@ -59,6 +59,7 @@ private:
 
     unsigned int frameBuffer, texColorBuffer, rbo;
 
+    unsigned int lightFBO;
     unsigned int colorBuffers[2];
     unsigned int pingpongFBO[2];
     unsigned int pingpongColorBuffers[2];
