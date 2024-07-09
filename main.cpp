@@ -12,7 +12,6 @@ int main()
 
     glm::vec3 target = glm::vec3(0.0, 0.0, 0.0);
     glm::vec3 cameraPos = glm::vec3 (0.0, 0.0, 15.0);
-    float distance = 15.0;
     glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 
     std::shared_ptr<OrbitCamera> orbitCamera =
@@ -25,6 +24,9 @@ int main()
 
     Shader rayMarchShader = Shader("../shader/blackhole.vert", "../shader/blackhole.frag");
     Shader postProcessShader = Shader("../shader/framebuffer.vert", "../shader/framebuffer.frag");
+
+    Shader brightPassShader = Shader("../shader/framebuffer.vert", "../shader/light.frag");
+    Shader blurShader = Shader("../shader/framebuffer.vert", "../shader/blur.frag");
 
     renderer.cameraSetup(orbitCamera);
 
@@ -41,7 +43,7 @@ int main()
         useOrbit = !useOrbit;
     });
 
-    renderer.draw(rayMarchShader, postProcessShader);
+    renderer.draw(rayMarchShader, brightPassShader, blurShader, postProcessShader);
 
     return 0;
 }

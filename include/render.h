@@ -17,7 +17,7 @@ public:
 
     void cameraSetup(std::shared_ptr<CameraBase> newCamera);
 
-    void draw(Shader rayMarchShader, Shader postProcessShader);
+    void draw(Shader rayMarchShader, Shader brightPassShader, Shader blurShader, Shader postProcessShader);
 
     void setCameraSwitchCallback(std::function<void()> callback);
 
@@ -38,6 +38,8 @@ private:
 
     void initRayMarch();
 
+    void initBloom();
+
     GLFWwindow *window;
 
     std::shared_ptr<CameraBase> camera;
@@ -56,6 +58,11 @@ private:
     bool isDragging = false;
 
     unsigned int frameBuffer, texColorBuffer, rbo;
+
+    unsigned int colorBuffers[2];
+    unsigned int pingpongFBO[2];
+    unsigned int pingpongColorBuffers[2];
+
     unsigned int quadVAO, quadVBO, quadEBO;
 
     unsigned int VBO, VAO, EBO;

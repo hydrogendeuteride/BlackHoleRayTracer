@@ -58,6 +58,7 @@ Render::Render(int scrWidth, int scrHeight)
 
     initRayMarch();
     initFrameBuffer();
+    initBloom();
 }
 
 void Render::cameraSetup(std::shared_ptr<CameraBase> newCamera)
@@ -222,7 +223,51 @@ void Render::initRayMarch()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies.size() * sizeof (unsigned int), static_cast<void*>(indicies.data()), GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof (float), (void*)0 );
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof (float),(void*)0 );
+}
+
+void Render::initBloom()
+{
+    glGenTextures(2, colorBuffers);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCRWIDTH, SCRHEIGHT,
+                     0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glFramebufferTexture2D(
+                GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D,
+                colorBuffers[i], 0
+        );
+    }
+
+    unsigned int attachments[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, attachments);
+
+    glGenFramebuffers(2, pingpongFBO);
+    glGenTextures(2, pingpongColorBuffers);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorBuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCRWIDTH, SCRHEIGHT,
+                     0, GL_RGBA, GL_FLOAT, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                               pingpongColorBuffers[i], 0);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "Framebuffer not complete!" << std::endl;
+    }
 }
 
 void Render::loadTextures(std::string& blackBody)
@@ -230,7 +275,7 @@ void Render::loadTextures(std::string& blackBody)
     blackBodyTexture = loadTexture(blackBody);
 }
 
-void Render::draw(Shader rayMarchShader, Shader postProcessShader)
+void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurShader, Shader postProcessShader)
 {
     rayMarchShader.setVec2("resolution", static_cast<float>(SCRWIDTH), static_cast<float>(SCRHEIGHT));
     rayMarchShader.setInt("blackbody", 0);
@@ -261,6 +306,32 @@ void Render::draw(Shader rayMarchShader, Shader postProcessShader)
         glBindVertexArray(0);
 
         //--------------------------------------------------------------------------------------
+        brightPassShader.use();
+        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+        glBindVertexArray(quadVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        bool horizontal = true, firstIteration = true;
+        unsigned int amount = 10;
+        blurShader.use();
+        for (unsigned int i = 0; i < amount; ++i)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+            blurShader.setInt("horizontal", horizontal);
+            glBindTexture(GL_TEXTURE_2D, firstIteration ? colorBuffers[1] : pingpongColorBuffers[!horizontal]);
+
+            glBindVertexArray(quadVAO);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(0);
+
+            horizontal = !horizontal;
+            if (firstIteration)
+                firstIteration = false;
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDisable(GL_DEPTH_TEST);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
