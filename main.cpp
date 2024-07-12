@@ -19,14 +19,14 @@ int main()
     std::shared_ptr<FreeCamera> freeCamera =
             std::make_shared<FreeCamera>(cameraPos, up, YAW, PITCH, ROLL);
 
-    std::string blackBodyTex = "../image/blackbody.png";
+    std::string blackBodyTex = "image/blackbody.png";
     renderer.loadTextures(blackBodyTex);
 
-    Shader rayMarchShader = Shader("../shader/blackhole.vert", "../shader/blackhole.frag");
-    Shader postProcessShader = Shader("../shader/framebuffer.vert", "../shader/framebuffer.frag");
+    Shader rayMarchShader = Shader("shader/blackhole.vert", "shader/blackhole.frag");
+    Shader postProcessShader = Shader("shader/framebuffer.vert", "shader/framebuffer.frag");
 
-    Shader brightPassShader = Shader("../shader/framebuffer.vert", "../shader/light.frag");
-    Shader blurShader = Shader("../shader/framebuffer.vert", "../shader/blur.frag");
+    Shader brightPassShader = Shader("shader/framebuffer.vert", "shader/light.frag");
+    Shader blurShader = Shader("shader/framebuffer.vert", "shader/blur.frag");
 
     renderer.cameraSetup(orbitCamera);
 
