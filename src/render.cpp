@@ -224,6 +224,57 @@ void Render::initRayMarch()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies.size() * sizeof (unsigned int), static_cast<void*>(indicies.data()), GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof (float),(void*)0 );
+
+    std::vector<float> cubeVertices = {
+            // positions
+            -0.5f, -0.5f, -0.5f,
+            0.5f, -0.5f, -0.5f,
+            0.5f,  0.5f, -0.5f,
+            -0.5f,  0.5f, -0.5f,
+            -0.5f, -0.5f,  0.5f,
+            0.5f, -0.5f,  0.5f,
+            0.5f,  0.5f,  0.5f,
+            -0.5f,  0.5f,  0.5f
+    };
+
+    std::vector<unsigned int> cubeIndices = {
+            0, 1, 2,
+            2, 3, 0,
+
+            4, 5, 6,
+            6, 7, 4,
+
+            0, 3, 7,
+            7, 4, 0,
+
+            1, 5, 6,
+            6, 2, 1,
+
+            3, 2, 6,
+            6, 7, 3,
+
+            0, 1, 5,
+            5, 4, 0
+    };
+
+    glGenBuffers(1, &skyBoxVAO);
+    glGenBuffers(1, &skyBoxVBO);
+    glGenBuffers(1, &skyBoxEBO);
+
+    glBindVertexArray(skyBoxVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, skyBoxVBO);
+    glBufferData(GL_ARRAY_BUFFER, cubeVertices.size() * sizeof(float ),
+                 static_cast<void*>(cubeVertices.data()), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skyBoxEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cubeIndices.size() * sizeof(unsigned int),
+                 static_cast<void*>(cubeIndices.data()), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
 }
 
 void Render::initBloom()
@@ -273,17 +324,15 @@ void Render::initBloom()
     }
 }
 
-void Render::loadTextures(std::string& blackBody)
+void Render::loadTextures(std::string& blackBody, std::vector<std::string>& cubeMap)
 {
     blackBodyTexture = loadTexture(blackBody);
+    cubeMapTexture = loadCubeMap(cubeMap);
 }
 
 void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurShader, Shader postProcessShader)
 {
     rayMarchShader.setVec2("resolution", static_cast<float>(SCRWIDTH), static_cast<float>(SCRHEIGHT));
-    rayMarchShader.setInt("blackbody", 0);
-
-    postProcessShader.setInt("screenTexture", 0);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -303,6 +352,7 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         rayMarchShader.setMat4("view", view);
         rayMarchShader.setVec3("cameraPos", cameraPos);
 
+        rayMarchShader.setInt("blackbody", 0);
         glBindVertexArray(VAO);
         glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

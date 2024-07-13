@@ -21,7 +21,7 @@ public:
 
     void setCameraSwitchCallback(std::function<void()> callback);
 
-    void loadTextures(std::string& blackBody);
+    void loadTextures(std::string& blackBody, std::vector<std::string>& cubeMap);
 
 private:
     void frameBufferSizeCallback(int width, int height);
@@ -67,6 +67,8 @@ private:
     unsigned int quadVAO, quadVBO, quadEBO;
 
     unsigned int VBO, VAO, EBO;
+
+    unsigned int skyBoxVAO, skyBoxVBO, skyBoxEBO;
 
     std::function<void()> cameraSwitchCallback;
 
