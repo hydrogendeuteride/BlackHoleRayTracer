@@ -29,6 +29,7 @@ const float TEMP_RANGE = 39000.0; //1000K~40000K
 out vec4 fragColor;
 
 uniform sampler2D blackbody;
+uniform samplerCube cubemap;
 
 //	Simplex 3D Noise
 //	by Ian McEwan, Ashima Arts
@@ -249,6 +250,9 @@ vec3 rayMarch(vec3 pos, vec3 dir) {
 
         diskRender(pos, color, alpha, dir);
     }
+
+    vec3 skyColor = texture(cubemap, normalize(dir)).rgb;
+    color += skyColor;
 
     return color;
 }

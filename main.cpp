@@ -20,7 +20,16 @@ int main()
             std::make_shared<FreeCamera>(cameraPos, up, YAW, PITCH, ROLL);
 
     std::string blackBodyTex = "image/blackbody.png";
-    renderer.loadTextures(blackBodyTex);
+    std::vector<std::string> cubeMapTex
+    {
+            "image/skybox_8k/right.png",
+            "image/skybox_8k/left.png",
+            "image/skybox_8k/up.png",
+            "image/skybox_8k/down.png",
+            "image/skybox_8k/front.png",
+            "image/skybox_8k/back.png"
+    };
+    renderer.loadTextures(blackBodyTex, cubeMapTex);
 
     Shader rayMarchShader = Shader("shader/blackhole.vert", "shader/blackhole.frag");
     Shader postProcessShader = Shader("shader/framebuffer.vert", "shader/framebuffer.frag");
