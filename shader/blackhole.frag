@@ -4,18 +4,25 @@ uniform vec2 resolution;
 
 uniform float time;
 
+uniform bool disk;
+uniform int accretionDiskOrbit;
+uniform bool dopplerShift;
+uniform bool gravitationalRedShift;
+uniform bool beaming;
+uniform bool realisticTemperature;
+uniform float accretionTemp;
+
 uniform vec3 cameraPos;
 uniform mat4 view;
 
-float diskHeight = 0.2;
+float diskHeight = 0.3;
 float diskDensityV = 1.0;
-float diskDensityH = 1.0;
+float diskDensityH = 2.0;
 float diskNoiseScale = 1.0;
 float diskSpeed = 0.5;
 
 int diskNoiseLOD = 6;
 
-float cameraRoll = 0.0;
 float steps = 1.0;
 
 int iteration = 512;
@@ -129,6 +136,8 @@ float calculateRedShift(vec3 pos)
         return 0.0f;
     }
     float redshift = sqrt(1.0f - 1.0f/dist) - 1.0f;
+
+    redshift = (1 / (1.0 + redshift));
     return redshift;
 }
 
@@ -142,8 +151,16 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
         return 1.0f;
     }
 
-    float velMag = -sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));   //relativistic speed
-//    float velMag = sqrt((G * M / r));                                     //non relativistic speed
+    float velMag;
+    if (accretionDiskOrbit == 0)
+    {
+        velMag = -sqrt((G * M / r));    //non relativistic speed
+    }
+    else if (accretionDiskOrbit == 1)
+    {
+        velMag = -sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));    //relativistic speed
+    }
+
     vec3 velDir = normalize(cross(vec3(0.0, 1.0, 0.0), pos));
     vel = velDir * velMag;
 
@@ -155,11 +172,16 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
     return dopplerShift;
 }
 
+float calculateRealisticTemperature(vec3 pos, float baseTemp) {
+    float radius = length(pos);
+    return baseTemp * pow(radius, -0.75);
+}
+
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir){
     float innerRadius = 3.0;
     float outerRadius = 9.0;
 
-    float density = max(0.0, 1.0 - length(pos.xyz / vec3(outerRadius, diskHeight, outerRadius)));
+    float density = max(0.0, 1.0 - length(pos / vec3(outerRadius, diskHeight, outerRadius)));
 
     if (density < 0.001){
         return;
@@ -185,34 +207,31 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir){
     for (int i = 0; i < diskNoiseLOD; ++i){
         noise *= 0.5 * snoise(sphericalCoord * pow(i, 2) * diskNoiseScale) + 0.5;
         if (i % 2 == 0) {
-            sphericalCoord.y += time * diskSpeed;
-        } else {
             sphericalCoord.y -= time * diskSpeed;
+        } else {
+            sphericalCoord.y += time * diskSpeed;
         }
     }
 
     float redshift = calculateRedShift(pos);
     float doppler = calculateDopplerEffect(pos, viewDir);
 
-    float accretionTemp = 6500;
-    accretionTemp /= doppler;
+    float accretionTempMod = accretionTemp;
 
-    vec4 dustColor = getBlackBodyColor(accretionTemp *  (1 / (1.0 + redshift))) * 0.005;
-//    vec3 dustColor = vec3(0.01, 0.01, 0.01);
+    if (realisticTemperature)
+        accretionTempMod = calculateRealisticTemperature(pos, accretionTempMod);
+
+    if(dopplerShift)
+        accretionTempMod /= doppler;
+
+    vec4 dustColor = getBlackBodyColor(accretionTempMod *  redshift) * 0.5;
 
     color += density * dustColor * alpha * abs(noise);
 
     color *= 1 / (1.0 + redshift);
-    color /= doppler * doppler * doppler;
-}
 
-mat3 lookat(vec3 origin, vec3 target, float roll) {
-    vec3 rr = vec3(sin(roll), cos(roll), 0.0);
-    vec3 ww = normalize(target - origin);
-    vec3 uu = normalize(cross(ww, rr));
-    vec3 vv = normalize(cross(uu, ww));
-
-    return mat3(uu, vv, ww);
+    if (beaming)
+        color /= doppler * doppler * doppler;
 }
 
 vec3 acceleration(float h2, vec3 pos){
@@ -248,7 +267,8 @@ vec4 rayMarch(vec3 pos, vec3 dir) {
             return color;
         }
 
-        diskRender(pos, color, alpha, dir);
+        if (disk)
+            diskRender(pos, color, alpha, dir);
     }
 
     vec4 skyColor = texture(cubemap, normalize(dir));

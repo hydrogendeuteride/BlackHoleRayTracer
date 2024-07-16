@@ -285,6 +285,29 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
 {
     rayMarchShader.setVec2("resolution", static_cast<float>(SCRWIDTH), static_cast<float>(SCRHEIGHT));
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    (void)io;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
+    io.FontGlobalScale = 2.0f;
+    ImFont* font1 = io.Fonts->AddFontFromFileTTF("image/Hack-Regular.ttf", 12.0f);
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.Colors[ImGuiCol_WindowBg].w = 0.5f;
+
+    int accretionDiskOrbit = 0;
+    const char* accretionType[] = {"kepler orbit", "relativistic orbit"};
+
+    bool disk = true;
+    bool dopplerEffect = true;
+    bool gravitationalRedshift = true;
+    bool beaming = true;
+    bool realisticTemperature = false;
+    float accretionTemp = 3500;
+
     while (!glfwWindowShouldClose(window))
     {
         glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -302,6 +325,14 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
 
         rayMarchShader.setMat4("view", view);
         rayMarchShader.setVec3("cameraPos", cameraPos);
+
+        rayMarchShader.setInt("disk", disk);
+        rayMarchShader.setInt("accretionDiskOrbit", accretionDiskOrbit);
+        rayMarchShader.setBool("dopplerShift", dopplerEffect);
+        rayMarchShader.setBool("gravitationalRedShift", gravitationalRedshift);
+        rayMarchShader.setBool("beaming", beaming);
+        rayMarchShader.setBool("realisticTemperature", realisticTemperature);
+        rayMarchShader.setFloat("accretionTemp", accretionTemp);
 
         glBindVertexArray(VAO);
         rayMarchShader.setInt("blackbody", 0);
@@ -360,9 +391,37 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glActiveTexture(GL_TEXTURE0);
 
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::PushFont(font1);
+        ImGui::Begin("BlackHole Settings");
+        ImGui::Text("Accretion disk orbit type");
+        ImGui::ListBox(" ", &accretionDiskOrbit,
+                       accretionType, IM_ARRAYSIZE(accretionType));
+
+        ImGui::Checkbox("Disk ON/OFF", &disk);
+        ImGui::Checkbox("Doppler Shift", &dopplerEffect);
+        ImGui::Checkbox("Gravitational Redshift", &gravitationalRedshift);
+        ImGui::Checkbox("Relativistic Beaming", &beaming);
+        ImGui::Checkbox("Realistic Temperature", &realisticTemperature);
+        ImGui::Text("Accretion disk temperature");
+        ImGui::SliderFloat("K(Kelvin)", &accretionTemp, 2000.0f, 20000.0f);
+
+        ImGui::End();
+        ImGui::PopFont();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     glfwTerminate();
 }

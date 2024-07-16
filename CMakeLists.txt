@@ -4,11 +4,19 @@ project(BlackHoleRayTracer)
 set(CMAKE_CXX_STANDARD 23)
 
 # Common settings
-include_directories(glad/include include)
+include_directories(glad/include include imgui)
 include_directories(${CMAKE_SOURCE_DIR})
 
 set(SHADER_DIR ${CMAKE_SOURCE_DIR}/shader)
 set(IMAGE_DIR ${CMAKE_SOURCE_DIR}/image)
+
+set(IMGUI_SRC
+        "imgui/imgui.cpp"
+        "imgui/imgui_draw.cpp"
+        "imgui/imgui_impl_glfw.cpp"
+        "imgui/imgui_impl_opengl3.cpp"
+        "imgui/imgui_tables.cpp"
+        "imgui/imgui_widgets.cpp")
 
 # Platform-specific settings
 if (WIN32)
@@ -40,6 +48,7 @@ add_executable(BlackHoleRayTracer
         glad/src/glad.c
         src/render.cpp
         src/texture.cpp
+        ${IMGUI_SRC}
 )
 
 target_link_libraries(${PROJECT_NAME} glfw ${CMAKE_DL_LIBS})
