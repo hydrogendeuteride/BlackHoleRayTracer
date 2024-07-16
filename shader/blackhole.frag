@@ -142,7 +142,7 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
         return 1.0f;
     }
 
-    float velMag = sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));   //relativistic speed
+    float velMag = -sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));   //relativistic speed
 //    float velMag = sqrt((G * M / r));                                     //non relativistic speed
     vec3 velDir = normalize(cross(vec3(0.0, 1.0, 0.0), pos));
     vel = velDir * velMag;
@@ -155,7 +155,7 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
     return dopplerShift;
 }
 
-void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 viewDir){
+void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir){
     float innerRadius = 3.0;
     float outerRadius = 9.0;
 
@@ -197,7 +197,7 @@ void diskRender(vec3 pos, inout vec3 color, inout float alpha, vec3 viewDir){
     float accretionTemp = 6500;
     accretionTemp /= doppler;
 
-    vec3 dustColor = getBlackBodyColor(accretionTemp *  (1 / (1.0 + redshift))).rgb * 0.005;
+    vec4 dustColor = getBlackBodyColor(accretionTemp *  (1 / (1.0 + redshift))) * 0.005;
 //    vec3 dustColor = vec3(0.01, 0.01, 0.01);
 
     color += density * dustColor * alpha * abs(noise);
@@ -231,8 +231,8 @@ void verlet(inout vec3 pos, float h2, inout vec3 dir, float dt){
     pos = pos_new;
 }
 
-vec3 rayMarch(vec3 pos, vec3 dir) {
-    vec3 color = vec3(0.0);
+vec4 rayMarch(vec3 pos, vec3 dir) {
+    vec4 color = vec4(0.0);
     float alpha = 1.0;
 
     float STEPSIZE = 0.1;
@@ -251,7 +251,7 @@ vec3 rayMarch(vec3 pos, vec3 dir) {
         diskRender(pos, color, alpha, dir);
     }
 
-    vec3 skyColor = texture(cubemap, normalize(dir)).rgb;
+    vec4 skyColor = texture(cubemap, normalize(dir));
     color += skyColor;
 
     return color;
@@ -265,5 +265,5 @@ void main(){
 
     dir = (view * vec4(dir, 0.0)).xyz;
 
-    fragColor.rgb = rayMarch(pos, dir);
+    fragColor = rayMarch(pos, dir);
 }

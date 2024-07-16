@@ -68,8 +68,6 @@ private:
 
     unsigned int VBO, VAO, EBO;
 
-    unsigned int skyBoxVAO, skyBoxVBO, skyBoxEBO;
-
     std::function<void()> cameraSwitchCallback;
 
     unsigned int blackBodyTexture, cubeMapTexture;

@@ -52,7 +52,7 @@ int main()
         useOrbit = !useOrbit;
     });
 
-    std::cout <<"start\n";
+
     renderer.draw(rayMarchShader, brightPassShader, blurShader, postProcessShader);
 
     return 0;

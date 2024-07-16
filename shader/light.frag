@@ -15,7 +15,7 @@ void main() {
 
     float brightness = dot(hdrColor.rgb, vec3(0.213, 0.7152, 0.0722));
     if (brightness > threshold)
-        brightColor = vec4(hdrColor.rgb, 1.0);
+        brightColor = vec4(hdrColor.rgb, hdrColor.a);
     else
-        brightColor = vec4(0.0, 0.0, 0.0, 1.0);
+        brightColor = vec4(0.0, 0.0, 0.0, hdrColor.a);
 }

@@ -15,13 +15,14 @@ public:
                 glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f))
             : CameraBase(position, up, yaw, pitch, 0.0f), target(target)
     {
-        distance = glm::sqrt(glm::dot(target - position, target - position));
+        distance = glm::sqrt(glm::dot(position - target, position - target));
+        calculatePosition();
         updateCameraVectors();
     }
 
     glm::mat4 getViewMatrix() override
     {
-        return glm::transpose(glm::lookAt(-position, target, -worldUp));
+        return glm::transpose(glm::lookAt(-position, target, worldUp));
     }
 
     void processMouseMovement(float xOffset, float yOffset) override
@@ -47,7 +48,7 @@ public:
 protected:
     void updateCameraVectors() override
     {
-        front = glm::normalize(target - position);
+        front = glm::normalize(position - target);
         right = glm::normalize(glm::cross(front, worldUp));
         up = glm::normalize(glm::cross(right, front));
     }
