@@ -17,7 +17,7 @@ int main()
     std::shared_ptr<OrbitCamera> orbitCamera =
             std::make_shared<OrbitCamera>(cameraPos, up, YAW, PITCH, target);
     std::shared_ptr<FreeCamera> freeCamera =
-            std::make_shared<FreeCamera>(cameraPos, up, YAW, PITCH, ROLL);
+            std::make_shared<FreeCamera>(-cameraPos, up, YAW - 90, PITCH, ROLL);
 
     std::string blackBodyTex = "image/blackbody.png";
     std::vector<std::string> cubeMapTex

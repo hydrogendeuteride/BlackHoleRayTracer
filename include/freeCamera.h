@@ -12,6 +12,7 @@ public:
 
     glm::mat4 getViewMatrix() override
     {
+        updateCameraVectors();
         return glm::lookAt(position, position + front, up);
     }
 
@@ -19,9 +20,9 @@ public:
     {
         float velocity = movementSpeed * deltaTime;
         if(direction == FORWARD)
-            position += front * velocity;
-        if(direction == BACKWARD)
             position -= front * velocity;
+        if(direction == BACKWARD)
+            position += front * velocity;
         if(direction == LEFT)
             position -= right * velocity;
         if(direction == RIGHT)
@@ -62,7 +63,7 @@ protected:
         orientation = qYaw * qPitch * qRoll;
         orientation = glm::normalize(orientation);
 
-        front = glm::rotate(orientation, glm::vec3(0.0f, 0.0f, -1.0f));
+        front = glm::rotate(orientation, glm::vec3(0.0f, 0.0f, 1.0f));
         up = glm::rotate(orientation, glm::vec3(0.0f, 1.0f, 0.0f));
         right = glm::normalize(glm::cross(front, up));
     }

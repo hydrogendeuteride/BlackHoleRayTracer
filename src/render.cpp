@@ -302,9 +302,13 @@ void Render::setImGui(std::string fontPath, float fontSize)
 void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurShader, Shader postProcessShader)
 {
     rayMarchShader.setVec2("resolution", static_cast<float>(SCRWIDTH), static_cast<float>(SCRHEIGHT));
+    float lastTime = 0.0;
 
     while (!glfwWindowShouldClose(window))
     {
+        float currentTime = glfwGetTime();
+        deltaTime = currentTime - lastTime;
+
         glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
         glEnable(GL_DEPTH_TEST);
 
@@ -404,6 +408,8 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        lastTime = currentTime;
 
         glfwSwapBuffers(window);
         glfwPollEvents();

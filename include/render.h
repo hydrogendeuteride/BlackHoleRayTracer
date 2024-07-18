@@ -79,7 +79,7 @@ private:
     ImFont* font;
     BlackHoleSettings bh;
     RendererSettings rs;
-    bool hudOFF = false;
+    bool hudOFF = true;
 };
 
 #endif //BLACKHOLERAYTRACER_RENDER_H
