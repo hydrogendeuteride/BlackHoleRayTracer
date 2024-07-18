@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <memory>
 #include <functional>
+#include <chrono>
 #include "texture.h"
 
 #include "imguiWidget.h"
@@ -80,6 +81,9 @@ private:
     BlackHoleSettings bh;
     RendererSettings rs;
     bool hudOFF = true;
+
+    std::chrono::steady_clock::time_point lastPressTimeC = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point lastPressTimeH = std::chrono::steady_clock::now();
 };
 
 #endif //BLACKHOLERAYTRACER_RENDER_H

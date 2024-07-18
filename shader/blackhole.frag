@@ -1,5 +1,7 @@
 #version 330 core
 
+precision highp float;
+
 uniform vec2 resolution;
 
 uniform float time;

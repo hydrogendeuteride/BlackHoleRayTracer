@@ -45,6 +45,7 @@ public:
     void processKeyboard(CameraMovement direction, float deltaTime) override{}
     void processMouseScroll(float yOffset) override{}
 
+
 protected:
     void updateCameraVectors() override
     {

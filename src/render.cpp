@@ -16,7 +16,7 @@ Render::Render(int scrWidth, int scrHeight)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(SCRWIDTH, SCRHEIGHT, "NBodySim", nullptr, nullptr);
+    window = glfwCreateWindow(SCRWIDTH, SCRHEIGHT, "BlackHoleRayTracer", nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
 
     if (window == nullptr)
@@ -38,13 +38,13 @@ Render::Render(int scrWidth, int scrHeight)
         win->scrollCallback(xoffset, yoffset);
     });
 
-    glfwSetCursorPosCallback(window, [](GLFWwindow *w, double xOffset, double yOffset){
+    glfwSetCursorPosCallback(window, [](GLFWwindow *w, double xOffset, double yOffset) {
         auto *win = static_cast<Render *>(glfwGetWindowUserPointer(w));
-        win ->mouseMovementCallback(xOffset, yOffset);
+        win->mouseMovementCallback(xOffset, yOffset);
     });
 
     glfwSetMouseButtonCallback(window, [](GLFWwindow *w, int button, int action, int mods) {
-        auto *win = static_cast<Render*>(glfwGetWindowUserPointer(w));
+        auto *win = static_cast<Render *>(glfwGetWindowUserPointer(w));
         win->mouseButtonCallback(button, action, mods);
     });
 
@@ -139,21 +139,37 @@ void Render::processInput(GLFWwindow *pWindow)
         camera->processKeyboard(ROLL_RIGHT, deltaTime);
 
     if (glfwGetKey(pWindow, GLFW_KEY_C) == GLFW_PRESS)
-        if (cameraSwitchCallback)
-            cameraSwitchCallback();
+    {
+        auto now = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPressTimeC).count();
+        if (duration > 200)
+        {
+            if (cameraSwitchCallback)
+                cameraSwitchCallback();
+            lastPressTimeC = now;
+        }
+    }
 
     if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
-        hudOFF = !hudOFF;
+    {
+        auto now = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPressTimeH).count();
+        if (duration > 200)
+        {
+            hudOFF = !hudOFF;
+            lastPressTimeH = now;
+        }
+    }
 }
 
 void Render::initFrameBuffer()
 {
     std::vector<float> quadVertices = {
             //pos               //tex
-            1.0f, 1.0f, 0.0f,   1.0f, 1.0f,
-            1.0f, -1.0f, 0.0f,  1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
             -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-            -1.0f, 1.0f, 0.0f,  0.0f, 1.0f
+            -1.0f, 1.0f, 0.0f, 0.0f, 1.0f
     };
 
     std::vector<int> quadIndices = {
@@ -168,15 +184,17 @@ void Render::initFrameBuffer()
     glBindVertexArray(quadVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, quadVertices.size() * sizeof (float), static_cast<void*>(quadVertices.data()), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, quadVertices.size() * sizeof(float), static_cast<void *>(quadVertices.data()),
+                 GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, quadIndices.size() * sizeof (unsigned int), static_cast<void*>(quadIndices.data()), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, quadIndices.size() * sizeof(unsigned int),
+                 static_cast<void *>(quadIndices.data()), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof (float), (void*)0 );
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof (float), (void*)(3 * sizeof (float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) (3 * sizeof(float)));
 
     glGenFramebuffers(1, &frameBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -193,7 +211,8 @@ void Render::initFrameBuffer()
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCRWIDTH, SCRHEIGHT);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -221,12 +240,14 @@ void Render::initRayMarch()
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof (float), static_cast<void*>(vertices.data()), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), static_cast<void *>(vertices.data()),
+                 GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies.size() * sizeof (unsigned int), static_cast<void*>(indicies.data()), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies.size() * sizeof(unsigned int), static_cast<void *>(indicies.data()),
+                 GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof (float),(void*)0 );
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
 
     glBindVertexArray(0);
 }
@@ -278,7 +299,7 @@ void Render::initBloom()
     }
 }
 
-void Render::loadTextures(std::string& blackBody, std::vector<std::string>& cubeMap)
+void Render::loadTextures(std::string &blackBody, std::vector<std::string> &cubeMap)
 {
     blackBodyTexture = loadTexture(blackBody);
     cubeMapTexture = loadCubeMap(cubeMap);
@@ -288,14 +309,14 @@ void Render::setImGui(std::string fontPath, float fontSize)
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    (void)io;
+    ImGuiIO &io = ImGui::GetIO();
+    (void) io;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
     font = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), fontSize);
-    ImGuiStyle& style = ImGui::GetStyle();
+    ImGuiStyle &style = ImGui::GetStyle();
     style.Colors[ImGuiCol_WindowBg].w = 0.5f;
 }
 
@@ -322,7 +343,7 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
 
         rayMarchShader.use();
         rayMarchShader.setVec2("resolution", 1920.0f, 1080.0f);
-        rayMarchShader.setFloat("time", (float )glfwGetTime());
+        rayMarchShader.setFloat("time", (float) glfwGetTime());
 
         rayMarchShader.setMat4("view", view);
         rayMarchShader.setVec3("cameraPos", cameraPos);

@@ -13,7 +13,7 @@ public:
     glm::mat4 getViewMatrix() override
     {
         updateCameraVectors();
-        return glm::lookAt(position, position + front, up);
+        return glm::transpose(glm::lookAt(position, position + front, up));
     }
 
     void processKeyboard(CameraMovement direction, float deltaTime) override
@@ -33,9 +33,9 @@ public:
             position -= up * velocity;
 
         if(direction == ROLL_LEFT)
-            roll -= 57.3f * deltaTime;
-        if(direction == ROLL_RIGHT)
             roll += 57.3f * deltaTime;
+        if(direction == ROLL_RIGHT)
+            roll -= 57.3f * deltaTime;
 
         updateCameraVectors();
     }
@@ -45,8 +45,8 @@ public:
         xOffset *= mouseSensitivity;
         yOffset *= mouseSensitivity;
 
-        yaw += xOffset;
-        pitch += yOffset;
+        yaw -= xOffset;
+        pitch -= yOffset;
 
         updateCameraVectors();
     }
