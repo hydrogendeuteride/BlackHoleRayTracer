@@ -10,9 +10,7 @@
 #include <functional>
 #include "texture.h"
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "imguiWidget.h"
 
 class Render
 {
@@ -26,6 +24,8 @@ public:
     void setCameraSwitchCallback(std::function<void()> callback);
 
     void loadTextures(std::string& blackBody, std::vector<std::string>& cubeMap);
+
+    void setImGui(std::string fontPath, float fontSize);
 
 private:
     void frameBufferSizeCallback(int width, int height);
@@ -75,6 +75,9 @@ private:
     std::function<void()> cameraSwitchCallback;
 
     unsigned int blackBodyTexture, cubeMapTexture;
+
+    ImFont* font;
+    BlackHoleSettings bh;
 };
 
 #endif //BLACKHOLERAYTRACER_RENDER_H

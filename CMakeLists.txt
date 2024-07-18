@@ -49,6 +49,7 @@ add_executable(BlackHoleRayTracer
         src/render.cpp
         src/texture.cpp
         ${IMGUI_SRC}
+        src/imguiWidget.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} glfw ${CMAKE_DL_LIBS})
