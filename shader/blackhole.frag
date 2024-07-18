@@ -4,6 +4,7 @@ uniform vec2 resolution;
 
 uniform float time;
 
+uniform int integrationType;
 uniform bool disk;
 uniform int accretionDiskOrbit;
 uniform bool dopplerShift;
@@ -23,9 +24,9 @@ float diskSpeed = 0.5;
 
 int diskNoiseLOD = 6;
 
-float steps = 1.0;
+float steps = 0.1;
 
-int iteration = 512;
+int iteration = 512;    //256 is sufficient
 
 const float G = 1.0;
 const float M = 1.0;
@@ -250,18 +251,38 @@ void verlet(inout vec3 pos, float h2, inout vec3 dir, float dt){
     pos = pos_new;
 }
 
+void rk4(inout vec3 pos, float h2, inout vec3 dir, float dt) {
+    vec3 k1_pos = dir;
+    vec3 k1_vel = acceleration(h2, pos);
+
+    vec3 k2_pos = dir + 0.5 * k1_vel * dt;
+    vec3 k2_vel = acceleration(h2, pos + 0.5 * k1_pos * dt);
+
+    vec3 k3_pos = dir + 0.5 * k2_vel * dt;
+    vec3 k3_vel = acceleration(h2, pos + 0.5 * k2_pos * dt);
+
+    vec3 k4_pos = dir + k3_vel * dt;
+    vec3 k4_vel = acceleration(h2, pos + k3_pos * dt);
+
+    vec3 pos_new = pos + (1.0 / 6.0) * (k1_pos + 2.0 * k2_pos + 2.0 * k3_pos + k4_pos) * dt;
+    vec3 dir_new = dir + (1.0 / 6.0) * (k1_vel + 2.0 * k2_vel + 2.0 * k3_vel + k4_vel) * dt;
+
+    pos = pos_new;
+    dir = dir_new;
+}
+
 vec4 rayMarch(vec3 pos, vec3 dir) {
     vec4 color = vec4(0.0);
     float alpha = 1.0;
-
-    float STEPSIZE = 0.1;
-    dir *=  STEPSIZE;
 
     vec3 h = cross(pos, dir);
     float h2 = dot(h, h);
 
     for (int i = 0; i < iteration; ++i){
-        verlet(pos, h2, dir, steps);
+        if (integrationType == 0)
+            verlet(pos, h2, dir, steps);
+        else
+            rk4(pos, h2, dir, steps);
 
         if (dot(pos, pos) < 1.0){
             return color;

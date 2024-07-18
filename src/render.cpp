@@ -141,6 +141,9 @@ void Render::processInput(GLFWwindow *pWindow)
     if (glfwGetKey(pWindow, GLFW_KEY_C) == GLFW_PRESS)
         if (cameraSwitchCallback)
             cameraSwitchCallback();
+
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS)
+        hudOFF = !hudOFF;
 }
 
 void Render::initFrameBuffer()
@@ -308,6 +311,8 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        processInput(window);
+
         glm::mat4 view = camera->getViewMatrix();
         glm::vec3 cameraPos = camera->position;
 
@@ -318,6 +323,7 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         rayMarchShader.setMat4("view", view);
         rayMarchShader.setVec3("cameraPos", cameraPos);
 
+        rayMarchShader.setInt("integrationType", bh.integration);
         rayMarchShader.setInt("disk", bh.disk);
         rayMarchShader.setInt("accretionDiskOrbit", bh.accretionDiskOrbit);
         rayMarchShader.setBool("dopplerShift", bh.dopplerEffect);
@@ -373,6 +379,9 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         glClear(GL_COLOR_BUFFER_BIT);
 
         postProcessShader.use();
+        postProcessShader.setInt("toneMapping", rs.toneMapping);
+        postProcessShader.setBool("bloom", rs.bloomEnabled);
+        postProcessShader.setFloat("bloomStrength", rs.bloomStrength);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
         postProcessShader.setInt("screenTexture", 0);
@@ -387,7 +396,11 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        blackHoleWidget(bh, font);
+        if (hudOFF)
+        {
+            blackHoleWidget(bh, font);
+            rendererWidget(rs, font);
+        }
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
