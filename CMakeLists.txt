@@ -9,6 +9,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 set(SHADER_DIR ${CMAKE_SOURCE_DIR}/shader)
 set(IMAGE_DIR ${CMAKE_SOURCE_DIR}/image)
+set(FONT_DIR ${CMAKE_SOURCE_DIR}/fonts)
 
 set(IMGUI_SRC
         "imgui/imgui.cpp"
@@ -57,6 +58,8 @@ target_link_libraries(${PROJECT_NAME} glfw ${CMAKE_DL_LIBS})
 add_custom_command(TARGET BlackHoleRayTracer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:BlackHoleRayTracer>/shader"
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:BlackHoleRayTracer>/image"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:BlackHoleRayTracer>/fonts"
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_DIR} "$<TARGET_FILE_DIR:BlackHoleRayTracer>/shader"
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${IMAGE_DIR} "$<TARGET_FILE_DIR:BlackHoleRayTracer>/image"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${FONT_DIR} "$<TARGET_FILE_DIR:BlackHoleRayTracer>/fonts"
 )

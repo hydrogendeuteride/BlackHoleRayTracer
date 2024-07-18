@@ -52,7 +52,7 @@ int main()
         useOrbit = !useOrbit;
     });
 
-    renderer.setImGui("image/Hack-Regular.ttf", 24.0f);
+    renderer.setImGui("fonts/Hack-Regular.ttf", 24.0f);
 
     renderer.draw(rayMarchShader, brightPassShader, blurShader, postProcessShader);
 
