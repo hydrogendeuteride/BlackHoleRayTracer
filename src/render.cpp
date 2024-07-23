@@ -12,7 +12,7 @@ Render::Render(int scrWidth, int scrHeight)
         std::cerr << "Failed to initialize GLFW" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -31,11 +31,6 @@ Render::Render(int scrWidth, int scrHeight)
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow *w, int width, int height) {
         auto *win = static_cast<Render *>(glfwGetWindowUserPointer(w));
         win->frameBufferSizeCallback(width, height);
-    });
-
-    glfwSetScrollCallback(window, [](GLFWwindow *w, double xoffset, double yoffset) {
-        auto *win = static_cast<Render *>(glfwGetWindowUserPointer(w));
-        win->scrollCallback(xoffset, yoffset);
     });
 
     glfwSetCursorPosCallback(window, [](GLFWwindow *w, double xOffset, double yOffset) {
@@ -69,11 +64,6 @@ void Render::cameraSetup(std::shared_ptr<CameraBase> newCamera)
 void Render::frameBufferSizeCallback(int width, int height)
 {
     glViewport(0, 0, width, height);
-}
-
-void Render::scrollCallback(float xOffset, float yOffset)
-{
-    camera->processMouseScroll(static_cast<float>(yOffset));
 }
 
 void Render::mouseButtonCallback(int button, int action, int mods)
