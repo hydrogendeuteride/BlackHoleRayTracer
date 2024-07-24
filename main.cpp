@@ -31,11 +31,11 @@ int main()
     };
     renderer.loadTextures(blackBodyTex, cubeMapTex);
 
-    Shader rayMarchShader = Shader("shader/blackhole.vert", "shader/blackhole.frag");
-    Shader postProcessShader = Shader("shader/framebuffer.vert", "shader/framebuffer.frag");
+    auto rayMarchShader= std::make_unique<Shader>("shader/blackhole.vert", "shader/blackhole.frag");
+    auto postProcessShader = std::make_unique<Shader>("shader/framebuffer.vert", "shader/framebuffer.frag");
 
-    Shader brightPassShader = Shader("shader/framebuffer.vert", "shader/light.frag");
-    Shader blurShader = Shader("shader/framebuffer.vert", "shader/blur.frag");
+    auto brightPassShader = std::make_unique<Shader>("shader/framebuffer.vert", "shader/light.frag");
+    auto blurShader = std::make_unique<Shader>("shader/framebuffer.vert", "shader/blur.frag");
 
     renderer.cameraSetup(orbitCamera);
 
@@ -54,7 +54,8 @@ int main()
 
     renderer.setImGui("fonts/Hack-Regular.ttf", 24.0f);
 
-    renderer.draw(rayMarchShader, brightPassShader, blurShader, postProcessShader);
+    renderer.draw(std::move(rayMarchShader), std::move(brightPassShader),
+                  std::move(blurShader), std::move(postProcessShader));
 
     return 0;
 }
