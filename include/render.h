@@ -17,6 +17,7 @@ class Render
 {
 public:
     Render(int scrWidth, int scrHeight);
+    ~Render();
 
     void cameraSetup(std::shared_ptr<CameraBase> newCamera);
 
@@ -28,6 +29,10 @@ public:
     void loadTextures(std::string& blackBody, std::vector<std::string>& cubeMap);
 
     void setImGui(std::string fontPath, float fontSize);
+
+    static void mainLoopWrapper(void* arg);
+
+    void mainLoop();
 
 private:
     void frameBufferSizeCallback(int width, int height);
@@ -85,6 +90,8 @@ private:
     std::chrono::steady_clock::time_point lastPressTimeH = std::chrono::steady_clock::now();
 
     std::unique_ptr<Shader> rayMarchShader, brightPassShader, blurShader, postProcessShader;
+
+    float lastTime = 0.0;
 };
 
 #endif //BLACKHOLERAYTRACER_RENDER_H

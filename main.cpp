@@ -1,3 +1,5 @@
+#include <emscripten/emscripten.h>
+#include <emscripten/html5_webgl.h>
 #include "render.h"
 #include "cameraBase.h"
 #include "orbitCamera.h"
@@ -56,6 +58,8 @@ int main()
 
     renderer.draw(std::move(rayMarchShader), std::move(brightPassShader),
                   std::move(blurShader), std::move(postProcessShader));
+
+    emscripten_set_main_loop_arg(Render::mainLoopWrapper, &renderer, 0, 1);
 
     return 0;
 }
