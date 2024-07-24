@@ -33,11 +33,6 @@ Render::Render(int scrWidth, int scrHeight)
         win->frameBufferSizeCallback(width, height);
     });
 
-    glfwSetScrollCallback(window, [](GLFWwindow *w, double xoffset, double yoffset) {
-        auto *win = static_cast<Render *>(glfwGetWindowUserPointer(w));
-        win->scrollCallback(xoffset, yoffset);
-    });
-
     glfwSetCursorPosCallback(window, [](GLFWwindow *w, double xOffset, double yOffset) {
         auto *win = static_cast<Render *>(glfwGetWindowUserPointer(w));
         win->mouseMovementCallback(xOffset, yOffset);
@@ -69,11 +64,6 @@ void Render::cameraSetup(std::shared_ptr<CameraBase> newCamera)
 void Render::frameBufferSizeCallback(int width, int height)
 {
     glViewport(0, 0, width, height);
-}
-
-void Render::scrollCallback(float xOffset, float yOffset)
-{
-    camera->processMouseScroll(static_cast<float>(yOffset));
 }
 
 void Render::mouseButtonCallback(int button, int action, int mods)
