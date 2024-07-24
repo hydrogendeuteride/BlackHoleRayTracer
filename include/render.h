@@ -20,7 +20,8 @@ public:
 
     void cameraSetup(std::shared_ptr<CameraBase> newCamera);
 
-    void draw(Shader rayMarchShader, Shader brightPassShader, Shader blurShader, Shader postProcessShader);
+    void draw(std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
+              std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader);
 
     void setCameraSwitchCallback(std::function<void()> callback);
 
@@ -30,8 +31,6 @@ public:
 
 private:
     void frameBufferSizeCallback(int width, int height);
-
-    void scrollCallback(float xOffset, float yOffset);
 
     void mouseMovementCallback(double xPosIn, double YPosIn);
 
@@ -84,6 +83,8 @@ private:
 
     std::chrono::steady_clock::time_point lastPressTimeC = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point lastPressTimeH = std::chrono::steady_clock::now();
+
+    std::unique_ptr<Shader> rayMarchShader, brightPassShader, blurShader, postProcessShader;
 };
 
 #endif //BLACKHOLERAYTRACER_RENDER_H

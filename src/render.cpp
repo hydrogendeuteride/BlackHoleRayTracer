@@ -310,10 +310,15 @@ void Render::setImGui(std::string fontPath, float fontSize)
     style.Colors[ImGuiCol_WindowBg].w = 0.5f;
 }
 
-void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurShader, Shader postProcessShader)
+void Render::draw(std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
+                  std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader)
 {
-    rayMarchShader.setVec2("resolution", static_cast<float>(SCRWIDTH), static_cast<float>(SCRHEIGHT));
     float lastTime = 0.0;
+
+    this->rayMarchShader = std::move(RayMarchShader);
+    this->brightPassShader = std::move(BrightPassShader);
+    this->blurShader = std::move(BlurShader);
+    this->postProcessShader = std::move(PostProcessShader);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -331,27 +336,27 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         glm::mat4 view = camera->getViewMatrix();
         glm::vec3 cameraPos = camera->position;
 
-        rayMarchShader.use();
-        rayMarchShader.setVec2("resolution", 1920.0f, 1080.0f);
-        rayMarchShader.setFloat("time", (float) glfwGetTime());
+        rayMarchShader->use();
+        rayMarchShader->setVec2("resolution", 1920.0f, 1080.0f);
+        rayMarchShader->setFloat("time", (float) glfwGetTime());
 
-        rayMarchShader.setMat4("view", view);
-        rayMarchShader.setVec3("cameraPos", cameraPos);
+        rayMarchShader->setMat4("view", view);
+        rayMarchShader->setVec3("cameraPos", cameraPos);
 
-        rayMarchShader.setInt("integrationType", bh.integration);
-        rayMarchShader.setInt("disk", bh.disk);
-        rayMarchShader.setInt("accretionDiskOrbit", bh.accretionDiskOrbit);
-        rayMarchShader.setBool("dopplerShift", bh.dopplerEffect);
-        rayMarchShader.setBool("gravitationalRedShift", bh.gravitationalRedshift);
-        rayMarchShader.setBool("beaming", bh.beaming);
-        rayMarchShader.setBool("realisticTemperature", bh.realisticTemperature);
-        rayMarchShader.setFloat("accretionTemp", bh.accretionTemp);
+        rayMarchShader->setInt("integrationType", bh.integration);
+        rayMarchShader->setInt("disk", bh.disk);
+        rayMarchShader->setInt("accretionDiskOrbit", bh.accretionDiskOrbit);
+        rayMarchShader->setBool("dopplerShift", bh.dopplerEffect);
+        rayMarchShader->setBool("gravitationalRedShift", bh.gravitationalRedshift);
+        rayMarchShader->setBool("beaming", bh.beaming);
+        rayMarchShader->setBool("realisticTemperature", bh.realisticTemperature);
+        rayMarchShader->setFloat("accretionTemp", bh.accretionTemp);
 
         glBindVertexArray(VAO);
-        rayMarchShader.setInt("blackbody", 0);
+        rayMarchShader->setInt("blackbody", 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
-        rayMarchShader.setInt("cubemap", 1);
+        rayMarchShader->setInt("cubemap", 1);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
         glActiveTexture(GL_TEXTURE0);
@@ -361,7 +366,7 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         //--------------------------------------------------------------------------------------
         glBindFramebuffer(GL_FRAMEBUFFER, lightFBO);
-        brightPassShader.use();
+        brightPassShader->use();
         glBindVertexArray(quadVAO);
         glBindTexture(GL_TEXTURE_2D, texColorBuffer);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -370,11 +375,11 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
 
         bool horizontal = true, firstIteration = true;
         unsigned int amount = 10;
-        blurShader.use();
+        blurShader->use();
         for (unsigned int i = 0; i < amount; ++i)
         {
             glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
-            blurShader.setInt("horizontal", horizontal);
+            blurShader->setInt("horizontal", horizontal);
             glBindTexture(GL_TEXTURE_2D, firstIteration ? colorBuffers[1] : pingpongColorBuffers[!horizontal]);
 
             glBindVertexArray(quadVAO);
@@ -393,16 +398,16 @@ void Render::draw(Shader rayMarchShader, Shader brightPassShader, Shader blurSha
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        postProcessShader.use();
-        postProcessShader.setInt("toneMapping", rs.toneMapping);
-        postProcessShader.setBool("bloom", rs.bloomEnabled);
-        postProcessShader.setFloat("bloomStrength", rs.bloomStrength);
+        postProcessShader->use();
+        postProcessShader->setInt("toneMapping", rs.toneMapping);
+        postProcessShader->setBool("bloom", rs.bloomEnabled);
+        postProcessShader->setFloat("bloomStrength", rs.bloomStrength);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
-        postProcessShader.setInt("screenTexture", 0);
+        postProcessShader->setInt("screenTexture", 0);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, pingpongColorBuffers[!horizontal]);
-        postProcessShader.setInt("bloomBlur", 1);
+        postProcessShader->setInt("bloomBlur", 1);
         glBindVertexArray(quadVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glActiveTexture(GL_TEXTURE0);
