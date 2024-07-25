@@ -227,11 +227,15 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir){
     if(dopplerShift)
         accretionTempMod /= doppler;
 
+    if (gravitationalRedShift)
+        accretionTempMod /= redshift;
+
     vec4 dustColor = getBlackBodyColor(accretionTempMod *  redshift) * 0.5;
 
     color += density * dustColor * alpha * abs(noise);
 
-    color *= 1 / (1.0 + redshift);
+    if (gravitationalRedShift)
+        color /= redshift;
 
     if (beaming)
         color /= doppler * doppler * doppler;
