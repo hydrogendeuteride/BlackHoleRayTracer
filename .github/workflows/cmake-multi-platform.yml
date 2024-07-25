@@ -34,6 +34,7 @@ jobs:
             git clone https://github.com/microsoft/vcpkg.git
             .\vcpkg\bootstrap-vcpkg.bat
             .\vcpkg\vcpkg.exe install glfw3 glm glew
+            .\vcpkg\vcpkg.exe integrate install
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1.10
