@@ -28,10 +28,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libglfw3-dev libglm-dev libglew-dev
 
-      - name: Install dependencies on Windows
+      - name: Install vcpkg on Windows
         if: matrix.os == 'windows-latest'
         run: |
-          choco install glfw glm
+          choco install git
+          git clone https://github.com/microsoft/vcpkg.git
+          .\vcpkg\bootstrap-vcpkg.bat
+
+      - name: Install dependencies with vcpkg on Windows
+        if: matrix.os == 'windows-latest'
+        run: .\vcpkg\vcpkg.exe install glfw3 glm
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1.10
@@ -42,8 +48,13 @@ jobs:
         with:
           arch: x64
 
-      - name: Configure CMake
+      - name: Configure CMake on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Configure CMake on Windows
+        if: matrix.os == 'windows-latest'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
 
       - name: Build
         run: cmake --build build --config ${{ matrix.build_type }}
