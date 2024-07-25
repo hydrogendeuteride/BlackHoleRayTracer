@@ -311,6 +311,5 @@ void main(){
     vec3 pos = cameraPos;
 
     dir = (view * vec4(dir, 0.0)).xyz;
-
     fragColor = rayMarch(pos, dir);
 }
