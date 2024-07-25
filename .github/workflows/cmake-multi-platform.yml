@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build_type: [Release, Debug]
+        build_type: [Release]
 
     steps:
       - name: Checkout repository
@@ -28,16 +28,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libglfw3-dev libglm-dev libglew-dev
 
-      - name: Install vcpkg on Windows
+      - name: Install dependencies on Windows
         if: matrix.os == 'windows-latest'
         run: |
-          choco install git
-          git clone https://github.com/microsoft/vcpkg.git
-          .\vcpkg\bootstrap-vcpkg.bat
-
-      - name: Install dependencies with vcpkg on Windows
-        if: matrix.os == 'windows-latest'
-        run: .\vcpkg\vcpkg.exe install glfw3 glm
+          choco install glfw3
+          git clone https://github.com/g-truc/glm.git glm
+          mv glm include/
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1.10
