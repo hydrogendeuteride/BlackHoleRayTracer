@@ -29,7 +29,7 @@ if (WIN32)
     endif()
 
     set(glfw3_DIR  "${CMAKE_SOURCE_DIR}/Lib/glfw-build/src")
-    find_package(glfw3 CONFIG REQUIRED)
+    find_package(glfw3 3.3 REQUIRED)
     include_directories(${GLFW_INCLUDE_DIRS})
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
