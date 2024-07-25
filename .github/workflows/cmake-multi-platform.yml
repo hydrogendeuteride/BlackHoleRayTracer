@@ -51,7 +51,10 @@ jobs:
 
       - name: Configure CMake on Windows
         if: matrix.os == 'windows-latest'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
+        env:
+            VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+            CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}
 
       - name: Build
         run: cmake --build build --config ${{ matrix.build_type }}
