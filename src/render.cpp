@@ -12,7 +12,7 @@ Render::Render(int scrWidth, int scrHeight)
         std::cerr << "Failed to initialize GLFW" << std::endl;
         std::exit(EXIT_FAILURE);
     }
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -51,7 +51,6 @@ Render::Render(int scrWidth, int scrHeight)
 
     glEnable(GL_DEPTH_TEST);
 
-    initRayMarch();
     initFrameBuffer();
     initBloom();
     initComputeShader();
@@ -209,40 +208,6 @@ void Render::initFrameBuffer()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Render::initRayMarch()
-{
-    std::vector<float> vertices = {
-            //pos
-            1.0f, 1.0f, 0.0f,
-            1.0f, -1.0f, 0.0f,
-            -1.0f, -1.0f, 0.0f,
-            -1.0f, 1.0f, 0.0f,
-    };
-
-    std::vector<int> indicies = {
-            0, 1, 3,
-            1, 2, 3
-    };
-
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), static_cast<void *>(vertices.data()),
-                 GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicies.size() * sizeof(unsigned int), static_cast<void *>(indicies.data()),
-                 GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
-
-    glBindVertexArray(0);
-}
-
 void Render::initBloom()
 {
     glGenFramebuffers(1, &lightFBO);
@@ -340,6 +305,8 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         float currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
 
+        std::cout << 1.0 / deltaTime << "\n";
+
         processInput(window);
 
         glm::mat4 view = camera->getViewMatrix();
@@ -362,28 +329,21 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         computeShader->setFloat("accretionTemp", bh.accretionTemp);
 
         computeShader->setInt("blackbody", 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
         computeShader->setInt("cubemap", 1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
+        glActiveTexture(GL_TEXTURE0);
 
         glBindImageTexture(0, computeTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-        glDispatchCompute((unsigned int)(1920 / 16.0), (unsigned int)(1920 / 16.0), 1);
+        glDispatchCompute((unsigned int)(1920 / 16.0), (unsigned int)(1080 / 16.0), 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
-        glEnable(GL_DEPTH_TEST);
-
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        rayMarchShader->use();
-        glBindVertexArray(quadVAO);
-        glBindTexture(GL_TEXTURE_2D, computeTexture);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         //--------------------------------------------------------------------------------------
         glBindFramebuffer(GL_FRAMEBUFFER, lightFBO);
         brightPassShader->use();
         glBindVertexArray(quadVAO);
-        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+        glBindTexture(GL_TEXTURE_2D, computeTexture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -42,8 +42,6 @@ private:
 
     void initFrameBuffer();
 
-    void initRayMarch();
-
     void initBloom();
 
     void initComputeShader();
