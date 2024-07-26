@@ -1,0 +1,20 @@
+﻿################################################################################
+# 이 .gitignore 파일은 Microsoft(R) Visual Studio에서 자동으로 만들어졌습니다.
+################################################################################
+
+/.idea
+/.vs/BlackHoleRayTracer
+/ALL_BUILD.vcxproj
+/ALL_BUILD.vcxproj.filters
+/BlackHoleRayTracer.dir/Debug/microsoft/STL
+/BlackHoleRayTracer.sln
+/BlackHoleRayTracer.vcxproj
+/BlackHoleRayTracer.vcxproj.filters
+/cmake-build-debug
+/cmake-build-debug-em
+/cmake-build-release
+/CMakeCache.txt
+/CMakeFiles
+/cmake_install.cmake
+/ZERO_CHECK.vcxproj
+/ZERO_CHECK.vcxproj.filters
