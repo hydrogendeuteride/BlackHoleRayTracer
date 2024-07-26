@@ -18,3 +18,11 @@
 /cmake_install.cmake
 /ZERO_CHECK.vcxproj
 /ZERO_CHECK.vcxproj.filters
+/.vs
+/BlackHoleRayTracer.dir/Debug
+/Debug
+/ALL_BUILD.vcxproj.user
+/BlackHoleRayTracer.vcxproj.user
+/imgui.ini
+/out/build/x64-Debug
+/x64/Debug/ZERO_CHECK
