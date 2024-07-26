@@ -31,7 +31,7 @@ int diskNoiseLOD = 6;
 
 float steps = 0.1;
 
-int iteration = 512;    //256 is sufficient
+int iteration = 256;    //256 is sufficient
 
 const float G = 1.0;
 const float M = 1.0;
