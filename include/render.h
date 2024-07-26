@@ -4,6 +4,7 @@
 #include "orbitCamera.h"
 #include "freeCamera.h"
 #include "shader.h"
+#include "computeShader.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <memory>
@@ -20,7 +21,8 @@ public:
 
     void cameraSetup(std::shared_ptr<CameraBase> newCamera);
 
-    void draw(std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
+    void draw(std::unique_ptr<ComputeShader> computeShader,
+              std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
               std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader);
 
     void setCameraSwitchCallback(std::function<void()> callback);
@@ -43,6 +45,8 @@ private:
     void initRayMarch();
 
     void initBloom();
+
+    void initComputeShader();
 
     GLFWwindow *window;
 
@@ -76,6 +80,8 @@ private:
 
     unsigned int blackBodyTexture, cubeMapTexture;
 
+    unsigned int computeTexture;
+
     ImFont* font;
     BlackHoleSettings bh;
     RendererSettings rs;
@@ -85,6 +91,7 @@ private:
     std::chrono::steady_clock::time_point lastPressTimeH = std::chrono::steady_clock::now();
 
     std::unique_ptr<Shader> rayMarchShader, brightPassShader, blurShader, postProcessShader;
+    std::unique_ptr<ComputeShader> computeShader;
 };
 
 #endif //BLACKHOLERAYTRACER_RENDER_H

@@ -2,6 +2,7 @@
 #include "cameraBase.h"
 #include "orbitCamera.h"
 #include "freeCamera.h"
+#include "computeShader.h"
 
 static constexpr int SCR_WIDTH = 1920;
 static constexpr int SCR_HEIGHT = 1080;
@@ -31,11 +32,13 @@ int main()
     };
     renderer.loadTextures(blackBodyTex, cubeMapTex);
 
-    auto rayMarchShader= std::make_unique<Shader>("shader/blackhole.vert", "shader/blackhole.frag");
+    auto rayMarchShader= std::make_unique<Shader>("shader/blackhole.vert", "shader/basic.frag");
     auto postProcessShader = std::make_unique<Shader>("shader/framebuffer.vert", "shader/framebuffer.frag");
 
     auto brightPassShader = std::make_unique<Shader>("shader/framebuffer.vert", "shader/light.frag");
     auto blurShader = std::make_unique<Shader>("shader/framebuffer.vert", "shader/blur.frag");
+
+    auto computeShader = std::make_unique<ComputeShader>("shader/blackhole.comp");
 
     renderer.cameraSetup(orbitCamera);
 
@@ -54,7 +57,8 @@ int main()
 
     renderer.setImGui("fonts/Hack-Regular.ttf", 24.0f);
 
-    renderer.draw(std::move(rayMarchShader), std::move(brightPassShader),
+    renderer.draw(std::move(computeShader),
+                  std::move(rayMarchShader), std::move(brightPassShader),
                   std::move(blurShader), std::move(postProcessShader));
 
     return 0;

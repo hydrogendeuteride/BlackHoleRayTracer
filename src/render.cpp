@@ -54,6 +54,7 @@ Render::Render(int scrWidth, int scrHeight)
     initRayMarch();
     initFrameBuffer();
     initBloom();
+    initComputeShader();
 }
 
 void Render::cameraSetup(std::shared_ptr<CameraBase> newCamera)
@@ -289,6 +290,18 @@ void Render::initBloom()
     }
 }
 
+void Render::initComputeShader()
+{
+    glGenTextures(1, &computeTexture);
+    glBindTexture(GL_TEXTURE_2D, computeTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCRWIDTH, SCRHEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void Render::loadTextures(std::string &blackBody, std::vector<std::string> &cubeMap)
 {
     blackBodyTexture = loadTexture(blackBody);
@@ -310,11 +323,13 @@ void Render::setImGui(std::string fontPath, float fontSize)
     style.Colors[ImGuiCol_WindowBg].w = 0.5f;
 }
 
-void Render::draw(std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
+void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
+                  std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
                   std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader)
 {
     float lastTime = 0.0;
 
+    this->computeShader = std::move(acomputeShader);
     this->rayMarchShader = std::move(RayMarchShader);
     this->brightPassShader = std::move(BrightPassShader);
     this->blurShader = std::move(BlurShader);
@@ -325,42 +340,42 @@ void Render::draw(std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader
         float currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
 
+        processInput(window);
+
+        glm::mat4 view = camera->getViewMatrix();
+        glm::vec3 cameraPos = camera->position;
+        
+        computeShader->use();
+        computeShader->setVec2("resolution", 1920.0f, 1080.0f);
+        computeShader->setFloat("time", (float) glfwGetTime());
+
+        computeShader->setMat4("view", view);
+        computeShader->setVec3("cameraPos", cameraPos);
+
+        computeShader->setInt("integrationType", bh.integration);
+        computeShader->setInt("disk", bh.disk);
+        computeShader->setInt("accretionDiskOrbit", bh.accretionDiskOrbit);
+        computeShader->setBool("dopplerShift", bh.dopplerEffect);
+        computeShader->setBool("gravitationalRedShift", bh.gravitationalRedshift);
+        computeShader->setBool("beaming", bh.beaming);
+        computeShader->setBool("realisticTemperature", bh.realisticTemperature);
+        computeShader->setFloat("accretionTemp", bh.accretionTemp);
+
+        computeShader->setInt("blackbody", 0);
+        computeShader->setInt("cubemap", 1);
+
+        glBindImageTexture(0, computeTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+        glDispatchCompute((unsigned int)(1920 / 16.0), (unsigned int)(1920 / 16.0), 1);
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
         glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
         glEnable(GL_DEPTH_TEST);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        processInput(window);
-
-        glm::mat4 view = camera->getViewMatrix();
-        glm::vec3 cameraPos = camera->position;
-
         rayMarchShader->use();
-        rayMarchShader->setVec2("resolution", 1920.0f, 1080.0f);
-        rayMarchShader->setFloat("time", (float) glfwGetTime());
-
-        rayMarchShader->setMat4("view", view);
-        rayMarchShader->setVec3("cameraPos", cameraPos);
-
-        rayMarchShader->setInt("integrationType", bh.integration);
-        rayMarchShader->setInt("disk", bh.disk);
-        rayMarchShader->setInt("accretionDiskOrbit", bh.accretionDiskOrbit);
-        rayMarchShader->setBool("dopplerShift", bh.dopplerEffect);
-        rayMarchShader->setBool("gravitationalRedShift", bh.gravitationalRedshift);
-        rayMarchShader->setBool("beaming", bh.beaming);
-        rayMarchShader->setBool("realisticTemperature", bh.realisticTemperature);
-        rayMarchShader->setFloat("accretionTemp", bh.accretionTemp);
-
-        glBindVertexArray(VAO);
-        rayMarchShader->setInt("blackbody", 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, blackBodyTexture);
-        rayMarchShader->setInt("cubemap", 1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMapTexture);
-        glActiveTexture(GL_TEXTURE0);
-
+        glBindVertexArray(quadVAO);
+        glBindTexture(GL_TEXTURE_2D, computeTexture);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
