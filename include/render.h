@@ -22,7 +22,7 @@ public:
     void cameraSetup(std::shared_ptr<CameraBase> newCamera);
 
     void draw(std::unique_ptr<ComputeShader> computeShader,
-              std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
+              std::unique_ptr<Shader> BrightPassShader,
               std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader);
 
     void setCameraSwitchCallback(std::function<void()> callback);
@@ -39,6 +39,8 @@ private:
     void mouseButtonCallback(int button, int action, int mods);
 
     void processInput(GLFWwindow *pWindow);
+
+    void initQuad();
 
     void initFrameBuffer();
 
@@ -63,16 +65,12 @@ private:
     glm::vec2 lastMousePosition;
     bool isDragging = false;
 
-    unsigned int frameBuffer, texColorBuffer, rbo;
-
     unsigned int lightFBO;
     unsigned int colorBuffers[2];
     unsigned int pingpongFBO[2];
     unsigned int pingpongColorBuffers[2];
 
     unsigned int quadVAO, quadVBO, quadEBO;
-
-    unsigned int VBO, VAO, EBO;
 
     std::function<void()> cameraSwitchCallback;
 
@@ -88,7 +86,7 @@ private:
     std::chrono::steady_clock::time_point lastPressTimeC = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point lastPressTimeH = std::chrono::steady_clock::now();
 
-    std::unique_ptr<Shader> rayMarchShader, brightPassShader, blurShader, postProcessShader;
+    std::unique_ptr<Shader> brightPassShader, blurShader, postProcessShader;
     std::unique_ptr<ComputeShader> computeShader;
 };
 

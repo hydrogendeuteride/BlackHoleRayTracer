@@ -58,7 +58,7 @@ int main()
     renderer.setImGui("fonts/Hack-Regular.ttf", 24.0f);
 
     renderer.draw(std::move(computeShader),
-                  std::move(rayMarchShader), std::move(brightPassShader),
+                  std::move(brightPassShader),
                   std::move(blurShader), std::move(postProcessShader));
 
     return 0;

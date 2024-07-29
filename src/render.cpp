@@ -51,7 +51,7 @@ Render::Render(int scrWidth, int scrHeight)
 
     glEnable(GL_DEPTH_TEST);
 
-    initFrameBuffer();
+    initQuad();
     initBloom();
     initComputeShader();
 }
@@ -152,14 +152,14 @@ void Render::processInput(GLFWwindow *pWindow)
     }
 }
 
-void Render::initFrameBuffer()
+void Render::initQuad()
 {
     std::vector<float> quadVertices = {
-            //pos               //tex
-            1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-            -1.0f, 1.0f, 0.0f, 0.0f, 1.0f
+        //pos               //tex
+        1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+        -1.0f, 1.0f, 0.0f, 0.0f, 1.0f
     };
 
     std::vector<int> quadIndices = {
@@ -174,38 +174,17 @@ void Render::initFrameBuffer()
     glBindVertexArray(quadVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, quadVertices.size() * sizeof(float), static_cast<void *>(quadVertices.data()),
-                 GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, quadVertices.size() * sizeof(float), static_cast<void*>(quadVertices.data()),
+        GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, quadIndices.size() * sizeof(unsigned int),
-                 static_cast<void *>(quadIndices.data()), GL_STATIC_DRAW);
+        static_cast<void*>(quadIndices.data()), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) (3 * sizeof(float)));
-
-    glGenFramebuffers(1, &frameBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
-
-    glGenTextures(1, &texColorBuffer);
-    glBindTexture(GL_TEXTURE_2D, texColorBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCRWIDTH, SCRHEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
-
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCRWIDTH, SCRHEIGHT);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    {
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 }
 
 void Render::initBloom()
@@ -289,13 +268,14 @@ void Render::setImGui(std::string fontPath, float fontSize)
 }
 
 void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
-                  std::unique_ptr<Shader> RayMarchShader, std::unique_ptr<Shader> BrightPassShader,
+                  std::unique_ptr<Shader> BrightPassShader,
                   std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader)
 {
     float lastTime = 0.0;
+    float lastFrame = 0.0;
+    int frame = 0;
 
     this->computeShader = std::move(acomputeShader);
-    this->rayMarchShader = std::move(RayMarchShader);
     this->brightPassShader = std::move(BrightPassShader);
     this->blurShader = std::move(BlurShader);
     this->postProcessShader = std::move(PostProcessShader);
@@ -305,7 +285,13 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         float currentTime = glfwGetTime();
         deltaTime = currentTime - lastTime;
 
-        std::cout << 1.0 / deltaTime << "\n";
+        frame++;
+        if (currentTime - lastFrame >= 1.0)
+        {
+            std::cout << "FPS: " << frame << "\n";
+            frame = 0;
+            lastFrame += 1.0;
+        }
 
         processInput(window);
 
