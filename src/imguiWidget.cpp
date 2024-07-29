@@ -26,13 +26,15 @@ void blackHoleWidget(BlackHoleSettings& bh, ImFont* font)
     ImGui::PopFont();
 }
 
-void rendererWidget(RendererSettings& rs, ImFont* font)
+void rendererWidget(RendererSettings& rs, ImFont* font, int fps)
 {
     ImGui::SetNextWindowPos(ImVec2(1500, 480), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(420, 300), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(420, 324), ImGuiCond_Always);
 
     ImGui::PushFont(font);
     ImGui::Begin("Renderer Settings");
+
+    ImGui::Text("FPS: %d", fps);
 
     ImGui::Text("ToneMapping Type");
     ImGui::ListBox(" ", &rs.toneMapping, rs.toneMappingType, IM_ARRAYSIZE(rs.toneMappingType));

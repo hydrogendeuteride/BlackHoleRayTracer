@@ -274,6 +274,7 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
     float lastTime = 0.0;
     float lastFrame = 0.0;
     int frame = 0;
+    int fps = 0;
 
     this->computeShader = std::move(acomputeShader);
     this->brightPassShader = std::move(BrightPassShader);
@@ -288,7 +289,7 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         frame++;
         if (currentTime - lastFrame >= 1.0)
         {
-            std::cout << "FPS: " << frame << "\n";
+            fps = frame;
             frame = 0;
             lastFrame += 1.0;
         }
@@ -380,7 +381,7 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         if (hudOFF)
         {
             blackHoleWidget(bh, font);
-            rendererWidget(rs, font);
+            rendererWidget(rs, font, fps);
         }
 
         ImGui::Render();

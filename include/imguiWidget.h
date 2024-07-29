@@ -32,6 +32,6 @@ struct RendererSettings{
 
 void blackHoleWidget(BlackHoleSettings& bh, ImFont* font);
 
-void rendererWidget(RendererSettings& rs, ImFont* font);
+void rendererWidget(RendererSettings& rs, ImFont* font, int fps);
 
 #endif //BLACKHOLERAYTRACER_IMGUIWIDGET_H
