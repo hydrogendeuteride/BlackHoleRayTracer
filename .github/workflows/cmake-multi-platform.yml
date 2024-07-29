@@ -63,10 +63,18 @@ jobs:
         run: cmake --build build --config ${{ matrix.build_type }}
 
       - name: Archive build
+        if: matrix.os == 'ubuntu-latest'
+        run: zip -r build.zip build/
+        
+      - name: Archive build (Windows)
+        if: matrix.os == 'windows-latest'
+        run: Compress-Archive -Path build\* -DestinationPath build.zip
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ runner.os }}-build-${{ matrix.build_type }}
-          path: build
+          path: build.zip
 
       - name: Create GitHub release
         id: create_release
@@ -78,11 +86,12 @@ jobs:
           release_name: Release ${{ github.run_number }}
           draft: false
           prerelease: false
+          body: "Automated release from GitHub Actions"
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: build
+          asset_path: build.zip
           asset_name: ${{ runner.os }}-build-${{ matrix.build_type }}.zip
           asset_content_type: application/zip
