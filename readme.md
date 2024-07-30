@@ -19,7 +19,7 @@ Possible future updates:
 - [ ] Orbiting star
 
 ## Build
-## Prerequisites
+### Prerequisites
 - C++17 compiler
 - cmake 3.25+
 - OpenGL 4.3+ (for compute shader)

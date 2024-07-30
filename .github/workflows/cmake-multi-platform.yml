@@ -12,6 +12,24 @@ permissions:
   contents: write
 
 jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Create GitHub release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: release-${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+          body: "Automated release from GitHub Actions"
+    
   build:
 
     runs-on: ${{ matrix.os }}
@@ -75,18 +93,6 @@ jobs:
         with:
           name: ${{ runner.os }}-build-${{ matrix.build_type }}
           path: build.zip
-
-      - name: Create GitHub release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: release-${{ matrix.os }}-${{ github.run_number }}
-          release_name: Release ${{ matrix.os }}-${{ github.run_number }}
-          draft: false
-          prerelease: false
-          body: "Automated release from GitHub Actions"
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
