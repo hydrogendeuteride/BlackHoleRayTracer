@@ -69,7 +69,7 @@ cmake --build build
 - Dear ImGui
 - realistic space skybox from [NASA Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851)
 - Hack font from [source-foundry](https://github.com/source-foundry/Hack)
-- Schutz, A First course in General Relativity
+- Schutz, _A First course in General Relativity_. 
 - Blackhole simulation by [rossning](https://github.com/rossning92/Blackhole)
 - Realistic Accretion disk modeling from https://jila.colorado.edu/~pja/astr3830/lecture26.pdf
 
