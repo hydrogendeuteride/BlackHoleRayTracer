@@ -294,6 +294,8 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     vec4 color = vec4(0.0);
     float alpha = 1.0;
 
+    float g_kl;
+
     vec3 h = cross(pos, dir);
     float h2 = dot(h, h);
 

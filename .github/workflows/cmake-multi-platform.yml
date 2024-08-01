@@ -29,9 +29,10 @@ jobs:
           draft: false
           prerelease: false
           body: "Automated release from GitHub Actions"
-    
+
   build:
 
+    needs: create_release
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -52,10 +53,10 @@ jobs:
       - name: Install dependencies on Windows using vcpkg
         if: matrix.os == 'windows-latest'
         run: |
-            git clone https://github.com/microsoft/vcpkg.git
-            .\vcpkg\bootstrap-vcpkg.bat
-            .\vcpkg\vcpkg.exe install glfw3 glm glew
-            .\vcpkg\vcpkg.exe integrate install
+          git clone https://github.com/microsoft/vcpkg.git
+          .\vcpkg\bootstrap-vcpkg.bat
+          .\vcpkg\vcpkg.exe install glfw3 glm glew
+          .\vcpkg\vcpkg.exe integrate install
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1.10
@@ -73,8 +74,8 @@ jobs:
       - name: Configure CMake on Windows
         if: matrix.os == 'windows-latest'
         env:
-            VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-            CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_TOOLCHAIN_FILE=${{ env.CMAKE_TOOLCHAIN_FILE }}
 
       - name: Build
