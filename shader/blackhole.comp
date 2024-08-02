@@ -27,9 +27,8 @@ float diskSpeed = 0.5;
 
 int diskNoiseLOD = 6;
 
-float steps = 0.1;
-
-int iteration = 256;    //256 is sufficient
+float steps = 0.01;
+int iteration = 1024;
 
 const float G = 1.0;
 const float M = 1.0;
@@ -250,43 +249,37 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     color /= doppler * doppler * doppler;
 }
 
-vec3 acceleration(float h2, vec3 pos)
+float acceleration(float u)
 {
-    float r2 = dot(pos, pos);
-    float r5 = pow(r2, 2.5);
-    vec3 acc = -1.5 * h2 * pos / r5;
-    return acc;
+    return -u * (1.0 - 1.5 * u * u);
 }
 
-void verlet(inout vec3 pos, float h2, inout vec3 dir, float dt)
+void verlet(inout float u, inout float du, float dt)
 {
-    vec3 a = acceleration(h2, pos);
-    vec3 pos_new = pos + dir * dt + 0.5 * a * dt * dt;
-    vec3 a_new = acceleration(h2, pos_new);
+    float ddu = acceleration(u);
+    float u_new = u + du * dt + 0.5 * ddu * dt * dt;
+    float ddu_new = acceleration(u_new);
 
-    dir += 0.5 * (a + a_new) * dt;
-    pos = pos_new;
+    du += 0.5 * (ddu + ddu_new) * dt;
+    u = u_new;
 }
 
-void rk4(inout vec3 pos, float h2, inout vec3 dir, float dt) 
+void rk4(inout float u, inout float du, float dt) 
 {
-    vec3 k1_pos = dir;
-    vec3 k1_vel = acceleration(h2, pos);
+    float k1_u = du;
+    float k1_du = acceleration(u);
 
-    vec3 k2_pos = dir + 0.5 * k1_vel * dt;
-    vec3 k2_vel = acceleration(h2, pos + 0.5 * k1_pos * dt);
+    float k2_u = du + 0.5 * dt * k1_du;
+    float k2_du = acceleration(u + 0.5 * dt * k1_u);
 
-    vec3 k3_pos = dir + 0.5 * k2_vel * dt;
-    vec3 k3_vel = acceleration(h2, pos + 0.5 * k2_pos * dt);
+    float k3_u = du + 0.5 * dt * k2_du;
+    float k3_du = acceleration(u + 0.5 * dt * k2_u);
 
-    vec3 k4_pos = dir + k3_vel * dt;
-    vec3 k4_vel = acceleration(h2, pos + k3_pos * dt);
+    float k4_u = du + dt * k3_du;
+    float k4_du = acceleration(u + dt * k3_u);
 
-    vec3 pos_new = pos + (1.0 / 6.0) * (k1_pos + 2.0 * k2_pos + 2.0 * k3_pos + k4_pos) * dt;
-    vec3 dir_new = dir + (1.0 / 6.0) * (k1_vel + 2.0 * k2_vel + 2.0 * k3_vel + k4_vel) * dt;
-
-    pos = pos_new;
-    dir = dir_new;
+    u += (dt / 6.0) * (k1_u + 2.0 * k2_u + 2.0 * k3_u + k4_u);
+    du += (dt / 6.0) * (k1_du + 2.0 * k2_du + 2.0 * k3_du + k4_du);
 }
 
 vec4 rayMarch(vec3 pos, vec3 dir) 
@@ -294,20 +287,37 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     vec4 color = vec4(0.0);
     float alpha = 1.0;
 
-    float g_kl;
+    float u = 1.0 / length(pos), old_u;
+    float u0 = u;
 
-    vec3 h = cross(pos, dir);
-    float h2 = dot(h, h);
+    vec3 normalVec = normalize(pos);
+    vec3 tangentVec = normalize(cross(cross(normalVec, dir), normalVec));
 
-    for (int i = 0; i < iteration; ++i){
-        if (integrationType == 0)
-        verlet(pos, h2, dir, steps);
-        else
-        rk4(pos, h2, dir, steps);
+    float du = -dot(normalVec, dir) / dot(dir, tangentVec) * u;
+    float du0 = du;
 
-        if (dot(pos, pos) < 1.0){
-            return color;
-        }
+    float phi = 0.0;
+    float t = time;
+    float dt = 1.0;
+
+    vec3 old_pos;
+
+    for (int i = 0; i < iteration; ++i)
+    {    
+        old_u = u;
+
+        float dt = steps;
+        verlet(u, du, dt);
+
+        if (u < 0.0)
+            break;
+
+        phi += steps;
+
+        old_pos = pos;
+
+        pos = (cos(phi) * normalVec + sin(phi) * tangentVec) / u;
+        dir = pos - old_pos;
 
         if (disk)
         diskRender(pos, color, alpha, dir);
@@ -328,7 +338,7 @@ void main()
     }
 
     vec2 uv = (2.0 * vec2(pixelCoord) - resolution) / resolution.y;
-    vec3 dir = normalize(vec3(uv, 1.0));
+    vec3 dir = normalize(vec3(uv, 2.0));
     vec3 pos = cameraPos;
 
     dir = (view * vec4(dir, 0.0)).xyz;
