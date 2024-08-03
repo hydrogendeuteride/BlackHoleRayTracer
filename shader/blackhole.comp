@@ -19,9 +19,9 @@ uniform float accretionTemp;
 uniform vec3 cameraPos;
 uniform mat4 view;
 
-float diskHeight = 0.3;
-float diskDensityV = 1.0;
-float diskDensityH = 2.0;
+float diskHeight = 0.2;
+float diskDensityV = 2.0;
+float diskDensityH = 1.5;
 float diskNoiseScale = 1.0;
 float diskSpeed = 0.5;
 
@@ -193,8 +193,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
         return;
     }
 
-    density *= pow(1.0 - abs(pos.y) / diskHeight, diskDensityV);
-
+    density *= exp(-abs(pos.y) / diskHeight * diskDensityV);
     density *= smoothstep(innerRadius, innerRadius * 1.1, length(pos));
 
     if (density < 0.001)
@@ -205,7 +204,6 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     vec3 sphericalCoord =  toSpherical(pos);
 
     sphericalCoord.y *= 2.0;
-    sphericalCoord.z *= 4.0;
 
     density *= 1.0 / pow(sphericalCoord.x, diskDensityH);
     density *= 16000.0;
@@ -301,13 +299,36 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     float dt = 1.0;
 
     vec3 old_pos;
+    //-------------------------------------------------------------------
+    vec4 k_s = vec4(1.0 / sqrt(1.0 - u), 0.0, 0.0, 0.0);
+    //camera velocity 4 vector(now stationary)
+
+    vec3 sphericalPos = toSpherical(pos); // r, theta, phi
+    float sR = sphericalPos.x;
+    float sTheta = sphericalPos.y;
+    float sPhi = sphericalPos.z;
+
+    vec4 pos4 = vec4(0, sphericalPos);  //Schwartzschild coord camera pos
+
+    // cartesian coord camera vector
+    vec3 e_tau = vec3(1.0 / sqrt(1.0 - u), 0.0, 0.0);
+    vec3 e_w = sqrt(1.0 - u) * normalize(vec3(sin(sTheta) * cos(sPhi),
+                                sin(sTheta) * sin(sPhi), cos(sTheta)));
+    vec3 e_h = normalize(vec3(cos(sTheta) * cos(sPhi),
+                              cos(sTheta) * sin(sPhi), -sin(sTheta))) / sR;
+    vec3 e_d = normalize(vec3(-sin(sPhi), cos(sPhi), 0.0)) /
+                        (sR * sin(sTheta));
 
     for (int i = 0; i < iteration; ++i)
     {    
         old_u = u;
 
         float dt = steps;
-        verlet(u, du, dt);
+        
+        if (integrationType == 0)
+            verlet(u, du, dt);
+        else
+            rk4(u, du, dt);
 
         if (u < 0.0)
             break;
@@ -333,7 +354,8 @@ void main()
 {
     ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 
-    if (pixelCoord.x >= resolution.x || pixelCoord.y >= resolution.y) {
+    if (pixelCoord.x >= resolution.x || pixelCoord.y >= resolution.y) 
+    {
         return;
     }
 
