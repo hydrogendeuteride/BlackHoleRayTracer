@@ -34,6 +34,8 @@ const float G = 1.0;
 const float M = 1.0;
 const float c = 1.0;
 
+const vec3 e_z = vec3(0.0, 0.0, 1.0);
+
 const float TEMP_RANGE = 39000.0; //1000K~40000K
 
 uniform sampler2D blackbody;
@@ -183,7 +185,7 @@ float calculateRealisticTemperature(vec3 pos, float baseTemp)
 
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 {
-    float innerRadius = 3.0;
+    float innerRadius = 2.0;
     float outerRadius = 9.0;
 
     float density = max(0.0, 1.0 - length(pos / vec3(outerRadius, diskHeight, outerRadius)));
@@ -194,7 +196,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     }
 
     density *= exp(-abs(pos.y) / diskHeight * diskDensityV);
-    density *= smoothstep(innerRadius, innerRadius * 1.1, length(pos));
+    density *= smoothstep(innerRadius, innerRadius * 1.5, length(pos));
 
     if (density < 0.001)
     {
@@ -226,12 +228,16 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     float doppler = calculateDopplerEffect(pos, viewDir);
 
     float accretionTempMod = accretionTemp;
-
+    
     if (realisticTemperature)
     accretionTempMod = calculateRealisticTemperature(pos, accretionTempMod);
 
     if(dopplerShift)
     accretionTempMod /= doppler;
+    
+    //It's for calculating doppler shift with Schwartzschild metric
+    //doesn't work well much.
+    //accretionTempMod *= shift;
 
     if (gravitationalRedShift)
     accretionTempMod /= redshift;
@@ -300,6 +306,9 @@ vec4 rayMarch(vec3 pos, vec3 dir)
 
     vec3 old_pos;
     //-------------------------------------------------------------------
+    //It's for calculating doppler shift with Schwartzschild metric
+    //doesn't work well much.
+    /*
     vec4 k_s = vec4(1.0 / sqrt(1.0 - u), 0.0, 0.0, 0.0);
     //camera velocity 4 vector(now stationary)
 
@@ -318,6 +327,19 @@ vec4 rayMarch(vec3 pos, vec3 dir)
                               cos(sTheta) * sin(sPhi), -sin(sTheta))) / sR;
     vec3 e_d = normalize(vec3(-sin(sPhi), cos(sPhi), 0.0)) /
                         (sR * sin(sTheta));
+
+    vec3 e_x_prime = normalize(pos);
+    vec3 e_z_prime = normalize(cross(e_x_prime, dir));
+    vec3 e_y_prime = normalize(cross(e_z_prime, e_x_prime));
+        
+    float e = sqrt(du * du + u * u * (1.0 - u));
+
+    vec4 l = vec4(e / (1.0 - u), -du, 0.0, u * u);
+
+    float g_kl_recv = k_s.x * l.x * (1.0 - u) - k_s.y * l.y / (1.0 - u)
+                            - u * dot(e_tau, e_y_prime) * l.w / (u * u);
+    */
+    //-------------------------------------------------------------------
 
     for (int i = 0; i < iteration; ++i)
     {    
@@ -340,10 +362,30 @@ vec4 rayMarch(vec3 pos, vec3 dir)
         pos = (cos(phi) * normalVec + sin(phi) * tangentVec) / u;
         dir = pos - old_pos;
 
-        if (disk)
-        diskRender(pos, color, alpha, dir);
-    }
+        //It's for calculating doppler shift with Schwartzschild metric
+        //doesn't work well much.
+        //e_x_prime = normalize(pos);
+        //e_z_prime = normalize(cross(e_x_prime, dir));
+        //e_y_prime = normalize(cross(e_z_prime, e_x_prime));
 
+        if (disk)
+        {
+            /*
+            vec4 l_prime = vec4(e / (1.0 - u), -du, 0.0, u * u);
+            vec4 k_prime = vec4(sqrt(2.0 / (2.0 - 3.0 * u)), 0.0, 0.0, 
+                                sqrt(u * u * u / (2.0 - 3.0 * u)));
+            */
+            //It's for calculating doppler shift with Schwartzschild metric
+            //doesn't work well much.
+            //float g_kl_source = e * sqrt(2.0 / (2.0 - 3.0 * u)) - 
+            //                  u * sqrt(u / (2.0 - 3.0 * u)) * dot(e_z, e_z_prime);
+
+            //float shift = g_kl_recv / g_kl_source;
+
+            diskRender(pos, color, alpha, dir);
+        }
+    }
+    
     vec4 skyColor = texture(cubemap, normalize(dir));
     color += skyColor;
 
