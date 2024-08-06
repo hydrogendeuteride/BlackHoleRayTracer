@@ -18,8 +18,8 @@ struct BlackHoleSettings {
     bool dopplerEffect = true;
     bool gravitationalRedshift = true;
     bool beaming = true;
-    bool realisticTemperature = false;
-    float accretionTemp = 3500.0f;
+    bool realisticTemperature = true;
+    float accretionTemp = 7500.0f;
 };
 
 struct RendererSettings{
