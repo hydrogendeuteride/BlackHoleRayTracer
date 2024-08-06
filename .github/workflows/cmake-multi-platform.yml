@@ -18,6 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Get the latest commit message
+        id: get_commit_message
+        run: echo "COMMIT_MESSAGE=$(git log -1 --pretty=%B)" >> $GITHUB_ENV
+
       - name: Create GitHub release
         id: create_release
         uses: actions/create-release@v1
@@ -28,7 +32,9 @@ jobs:
           release_name: Release ${{ github.run_number }}
           draft: false
           prerelease: false
-          body: "Automated release from GitHub Actions"
+          body: "${{ env.COMMIT_MESSAGE }}"
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
 
   build:
 
