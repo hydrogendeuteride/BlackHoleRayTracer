@@ -20,7 +20,7 @@ jobs:
 
       - name: Get the latest commit message
         id: get_commit_message
-        run: echo "COMMIT_MESSAGE=$(git log -1 --pretty=%B)" >> $GITHUB_ENV
+        run: echo "COMMIT_MESSAGE=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/\"/\\\"/g')" >> $GITHUB_ENV
 
       - name: Create GitHub release
         id: create_release
