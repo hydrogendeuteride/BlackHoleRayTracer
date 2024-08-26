@@ -1,4 +1,4 @@
-#version 430 core
+#version 430
 out vec4 fragColor;
 
 in vec2 TexCoord;
@@ -33,14 +33,26 @@ vec3 ReinhardToneMapping(vec3 color) {
     return color / (color + vec3(1.0));
 }
 
+vec3 rec2020ToDCIP3(vec3 color)
+{
+    const mat3 rec2020_to_dciP3 = mat3(
+    1.2489, -0.1185, -0.1304,
+    -0.0494, 1.1605, -0.1111,
+    -0.0036, -0.0183, 1.0219
+    );
+    return rec2020_to_dciP3 * color;
+}
+
 void main()
 {
-    float gamma = 2.2;
-    vec4 hdrColor = clamp(texture(screenTexture, TexCoord), 0.0, 5.0);
-    vec4 bloomColor = clamp(texture(bloomBlur, TexCoord), 0.0, 5.0) * bloomStrength;
+    float gamma = 2.4;
+    vec4 hdrColor = texture(screenTexture, TexCoord);
+    vec4 bloomColor = texture(bloomBlur, TexCoord) * bloomStrength;
 
     if (bloom)
         hdrColor += bloomColor;
+
+    hdrColor.xyz = rec2020ToDCIP3(hdrColor.xyz);
 
     vec3 mapped;
     if (toneMapping == 0)

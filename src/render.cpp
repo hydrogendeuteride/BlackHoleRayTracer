@@ -4,8 +4,8 @@
 
 Render::Render(int scrWidth, int scrHeight)
 {
-    SCRWIDTH = scrWidth;
-    SCRHEIGHT = scrHeight;
+    renderWidth = scrWidth;
+    renderHeight = scrHeight;
 
     if (!glfwInit())
     {
@@ -16,7 +16,7 @@ Render::Render(int scrWidth, int scrHeight)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(SCRWIDTH, SCRHEIGHT, "BlackHoleRayTracer", nullptr, nullptr);
+    window = glfwCreateWindow(renderWidth, renderHeight, "BlackHoleRayTracer", nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
 
     if (window == nullptr)
@@ -54,6 +54,7 @@ Render::Render(int scrWidth, int scrHeight)
     initQuad();
     initBloom();
     initComputeShader();
+    initResolution();
 }
 
 void Render::cameraSetup(std::shared_ptr<CameraBase> newCamera)
@@ -155,11 +156,11 @@ void Render::processInput(GLFWwindow *pWindow)
 void Render::initQuad()
 {
     std::vector<float> quadVertices = {
-        //pos               //tex
-        1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-        1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-        -1.0f, 1.0f, 0.0f, 0.0f, 1.0f
+            //pos               //tex
+            1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+            -1.0f, 1.0f, 0.0f, 0.0f, 1.0f
     };
 
     std::vector<int> quadIndices = {
@@ -174,17 +175,17 @@ void Render::initQuad()
     glBindVertexArray(quadVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, quadVertices.size() * sizeof(float), static_cast<void*>(quadVertices.data()),
-        GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, quadVertices.size() * sizeof(float), static_cast<void *>(quadVertices.data()),
+                 GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, quadIndices.size() * sizeof(unsigned int),
-        static_cast<void*>(quadIndices.data()), GL_STATIC_DRAW);
+                 static_cast<void *>(quadIndices.data()), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) 0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) (3 * sizeof(float)));
 }
 
 void Render::initBloom()
@@ -197,7 +198,7 @@ void Render::initBloom()
     for (int i = 0; i < 2; ++i)
     {
         glBindTexture(GL_TEXTURE_2D, colorBuffers[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCRWIDTH, SCRHEIGHT,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderWidth, renderHeight,
                      0, GL_RGBA, GL_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -220,7 +221,7 @@ void Render::initBloom()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
         glBindTexture(GL_TEXTURE_2D, pingpongColorBuffers[i]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCRWIDTH, SCRHEIGHT,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderWidth, renderHeight,
                      0, GL_RGBA, GL_FLOAT, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -238,7 +239,7 @@ void Render::initComputeShader()
 {
     glGenTextures(1, &computeTexture);
     glBindTexture(GL_TEXTURE_2D, computeTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCRWIDTH, SCRHEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderWidth, renderHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -246,10 +247,11 @@ void Render::initComputeShader()
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Render::loadTextures(std::string &blackBody, std::vector<std::string> &cubeMap)
+void
+Render::loadTextures(std::string &blackBody, std::vector<std::string> &cubeMap, std::vector<std::string> &hdrCubeMap)
 {
     blackBodyTexture = loadTexture(blackBody);
-    cubeMapTexture = loadCubeMap(cubeMap);
+    cubeMapTexture = loadHDRCubeMap(hdrCubeMap);
 }
 
 void Render::setImGui(std::string fontPath, float fontSize)
@@ -267,9 +269,70 @@ void Render::setImGui(std::string fontPath, float fontSize)
     style.Colors[ImGuiCol_WindowBg].w = 0.5f;
 }
 
+void Render::initResolution()
+{
+    glGenFramebuffers(1, &resolutionFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, resolutionFBO);
+
+    glGenTextures(1, &resolutionTexture);
+    glBindTexture(GL_TEXTURE_2D, resolutionTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, renderWidth, renderHeight,
+                 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolutionTexture, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Render::toggleFullScreen()
+{
+    GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+
+    glfwGetWindowPos(window, &windowedXPos, &windowedYPos);
+    glfwGetWindowSize(window, &windowedWidth, &windowedHeight);
+
+    glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+}
+
+std::pair<int, int> Render::updateViewPort() const
+{
+    int windowWidth, windowHeight;
+    glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
+
+    float targetAspectRatio = (float) renderWidth / (float) renderHeight;
+    float windowAspectRatio = (float) windowWidth / (float) windowHeight;
+
+    int viewportWidth, viewportHeight;
+    int viewportX, viewportY;
+
+    if (windowAspectRatio > targetAspectRatio)
+    {
+        viewportHeight = windowHeight;
+        viewportWidth = (int) (viewportHeight * targetAspectRatio);
+        viewportX = (windowWidth - viewportWidth) / 2;
+        viewportY = 0;
+    }
+    else
+    {
+        viewportWidth = windowWidth;
+        viewportHeight = (int) (viewportWidth / targetAspectRatio);
+        viewportX = 0;
+        viewportY = (windowHeight - viewportHeight) / 2;
+    }
+
+    glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+
+    return std::make_pair(viewportWidth, viewportY);
+}
+
 void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
                   std::unique_ptr<Shader> BrightPassShader,
-                  std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader)
+                  std::unique_ptr<Shader> BlurShader,
+                  std::unique_ptr<Shader> PostProcessShader,
+                  std::unique_ptr<Shader> screenShader)
 {
     float lastTime = 0.0;
     float lastFrame = 0.0;
@@ -294,11 +357,15 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
             lastFrame += 1.0;
         }
 
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
         processInput(window);
+        glViewport(0, 0, 1920, 1080);
 
         glm::mat4 view = camera->getViewMatrix();
         glm::vec3 cameraPos = camera->position;
-        
+
         computeShader->use();
         computeShader->setVec2("resolution", 1920.0f, 1080.0f);
         computeShader->setFloat("time", (float) glfwGetTime());
@@ -324,7 +391,7 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         glActiveTexture(GL_TEXTURE0);
 
         glBindImageTexture(0, computeTexture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-        glDispatchCompute((unsigned int)(1920 / 16.0), (unsigned int)(1080 / 16.0), 1);
+        glDispatchCompute((unsigned int) (1920 / 16.0), (unsigned int) (1080 / 16.0), 1);
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         //--------------------------------------------------------------------------------------
         glBindFramebuffer(GL_FRAMEBUFFER, lightFBO);
@@ -354,11 +421,12 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+        glBindFramebuffer(GL_FRAMEBUFFER, resolutionFBO);
         glDisable(GL_DEPTH_TEST);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, resolutionFBO);
 
         postProcessShader->use();
         postProcessShader->setInt("toneMapping", rs.toneMapping);
@@ -374,16 +442,36 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
         glActiveTexture(GL_TEXTURE0);
 
+        auto [currentWindowWidth, currentWindowHeight] = updateViewPort();
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        screenShader->use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, resolutionTexture);
+        screenShader->setInt("screenTexture", 0);
+        glBindVertexArray(quadVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
         if (hudOFF)
         {
-            blackHoleWidget(bh, font);
-            rendererWidget(rs, font, fps);
+            blackHoleWidget(bh, font, currentWindowWidth, currentWindowHeight);
+            rendererWidget(rs, font, fps, isFullScreen, currentWindowWidth, currentWindowHeight);
         }
 
+        if (isFullScreen == 1)
+            toggleFullScreen();
+        else if (isFullScreen == 2)
+        {
+            glfwSetWindowMonitor(window, nullptr, 100, 100,
+                                 1920, 1080, 0);
+            isFullScreen = 0;
+        }
+        
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
@@ -391,6 +479,7 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
     }
 
     ImGui_ImplOpenGL3_Shutdown();

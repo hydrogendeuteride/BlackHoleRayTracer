@@ -30,8 +30,8 @@ struct RendererSettings{
     float bloomStrength = 0.1f;
 };
 
-void blackHoleWidget(BlackHoleSettings& bh, ImFont* font);
+void blackHoleWidget(BlackHoleSettings& bh, ImFont* font, int currentWindowWidth, int currentWindowHeight);
 
-void rendererWidget(RendererSettings& rs, ImFont* font, int fps);
+void rendererWidget(RendererSettings& rs, ImFont* font, int fps, int &fullScreen, int currentWindowWidth, int currentWindowHeight);
 
 #endif //BLACKHOLERAYTRACER_IMGUIWIDGET_H

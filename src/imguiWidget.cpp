@@ -1,8 +1,8 @@
 #include "imguiWidget.h"
 
-void blackHoleWidget(BlackHoleSettings& bh, ImFont* font)
+void blackHoleWidget(BlackHoleSettings& bh, ImFont* font, int currentWindowWidth, int currentWindowHeight)
 {
-    ImGui::SetNextWindowPos(ImVec2(1500, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(currentWindowWidth - 420, currentWindowHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(420, 320), ImGuiCond_Always);
 
     ImGui::PushFont(font);
@@ -26,10 +26,10 @@ void blackHoleWidget(BlackHoleSettings& bh, ImFont* font)
     ImGui::PopFont();
 }
 
-void rendererWidget(RendererSettings& rs, ImFont* font, int fps)
+void rendererWidget(RendererSettings& rs, ImFont* font, int fps, int &fullScreen, int currentWindowWidth, int currentWindowHeight)
 {
-    ImGui::SetNextWindowPos(ImVec2(1500, 320), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(420, 324), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(currentWindowWidth - 420, currentWindowHeight + 320), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(420, 360), ImGuiCond_Always);
 
     ImGui::PushFont(font);
     ImGui::Begin("Renderer Settings");
@@ -45,6 +45,16 @@ void rendererWidget(RendererSettings& rs, ImFont* font, int fps)
     ImGui::Text("Bloom Strength(log10)");
     ImGui::SliderFloat(" ", &tmp, logMin, logMax);
     rs.bloomStrength = powf(10.0f, tmp);
+
+    if (ImGui::Button("FullScreen/Window"))
+    {
+        if (fullScreen == 0)
+            fullScreen = 1;
+        else if (fullScreen == 1)
+            fullScreen = 2;
+        else if (fullScreen == 2)
+            fullScreen = 1;
+    }
 
     ImGui::End();
     ImGui::PopFont();

@@ -23,11 +23,13 @@ public:
 
     void draw(std::unique_ptr<ComputeShader> computeShader,
               std::unique_ptr<Shader> BrightPassShader,
-              std::unique_ptr<Shader> BlurShader, std::unique_ptr<Shader> PostProcessShader);
+              std::unique_ptr<Shader> BlurShader,
+              std::unique_ptr<Shader> PostProcessShader,
+              std::unique_ptr<Shader> screenShader);
 
     void setCameraSwitchCallback(std::function<void()> callback);
 
-    void loadTextures(std::string& blackBody, std::vector<std::string>& cubeMap);
+    void loadTextures(std::string& blackBody, std::vector<std::string>& cubeMap, std::vector<std::string> &hdrCubeMap);
 
     void setImGui(std::string fontPath, float fontSize);
 
@@ -42,11 +44,15 @@ private:
 
     void initQuad();
 
-    void initFrameBuffer();
+    void initResolution();
 
     void initBloom();
 
     void initComputeShader();
+
+    void toggleFullScreen();
+
+    std::pair<int, int> updateViewPort() const;
 
     GLFWwindow *window;
 
@@ -54,10 +60,10 @@ private:
 
     bool firstMouse = true;
 
-    int SCRWIDTH, SCRHEIGHT;
+    int renderWidth, renderHeight;
 
-    float lastX = static_cast<float>(SCRWIDTH) / 2.0f;
-    float lastY = static_cast<float>(SCRHEIGHT) / 2.0f;
+    float lastX = static_cast<float>(renderWidth) / 2.0f;
+    float lastY = static_cast<float>(renderHeight) / 2.0f;
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
@@ -69,6 +75,13 @@ private:
     unsigned int colorBuffers[2];
     unsigned int pingpongFBO[2];
     unsigned int pingpongColorBuffers[2];
+
+    unsigned int resolutionFBO;
+    unsigned int resolutionTexture;
+
+    int isFullScreen = 0;
+    int windowedXPos, windowedYPos;
+    int windowedWidth, windowedHeight;
 
     unsigned int quadVAO, quadVBO, quadEBO;
 

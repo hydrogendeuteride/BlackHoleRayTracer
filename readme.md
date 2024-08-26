@@ -1,6 +1,6 @@
 # BlackHole Ray Tracer
 
-![](image/BlackHole2.gif)
+![](image/BH3.gif)
 
 ## Description
 Simulation of Schwarzschild black hole using OpenGL ray marching.
@@ -51,8 +51,12 @@ git clone https://github.com/hydrogendeuteride/BlackHoleRayTracer.git
 ```
 3. Build
 ```
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
-cmake --build build
+mkdir build
+cd build
+
+cmake ..
+cmake -G "Visual Studio 16 2019" ..
+cmake --build . --config Release
 ```
 
 ## Controls
@@ -72,6 +76,7 @@ cmake --build build
 - Schutz, _A First course in General Relativity_. 
 - Blackhole simulation by [rossning](https://github.com/rossning92/Blackhole)
 - Realistic Accretion disk modeling from https://jila.colorado.edu/~pja/astr3830/lecture26.pdf
+- Bruneton, Eric. _Real-time High-Quality Rendering of Non-Rotating Black Holes._ arXiv:2010.08735v1 (2020). Available at: https://arxiv.org/abs/2010.08735v1
 
 ## License
 [MIT License](LICENSE)

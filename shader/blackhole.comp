@@ -23,7 +23,7 @@ uniform mat4 view;
 
 float diskHeight = 0.2;
 float diskDensityV = 2.0;
-float diskDensityH = 1.5;
+float diskDensityH = 15.0 / 8.0;
 float diskNoiseScale = 1.0;
 float diskSpeed = 1.0;
 
@@ -251,9 +251,9 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
     float Z = z / y * Y;
 
     //CIE XYZ color space
-    float R = 3.24096994 * X - 1.53738318 * Y - 0.49861076 * Z;
-    float G = -0.96924364 * X + 1.8759675 * Y + 0.04155506 * Z;
-    float B = 0.05563008 * X - 0.20397696 * Y + 1.05697151 * Z;
+    float R = 1.7167 * X - 0.3557 * Y - 0.2534 * Z;
+    float G = -0.6667 * X + 1.6165 * Y + 0.0158 * Z;
+    float B = 0.0176 * X - 0.0428 * Y + 0.9421 * Z;
 
     R = max(R, 0.0);
     G = max(G, 0.0);
@@ -284,7 +284,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
         return;
     }
 
-    density *= exp(-abs(pos.y) / diskHeight * diskDensityV);
+    density *= exp(-pow(abs(pos.y), diskDensityV) / (2 * diskHeight * diskHeight));
     density *= smoothstep(innerRadius, innerRadius * 1.5, length(pos));
 
     if (density < 0.001)
