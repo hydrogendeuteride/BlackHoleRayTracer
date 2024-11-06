@@ -36,7 +36,7 @@ const float densityScale = 16000.0;
 int diskNoiseLOD = 6;
 
 float steps = 0.01;
-int iteration = 768; //minimum: 768
+int iteration = 768;//minimum: 768
 
 const float G = 1.0;
 const float M = 1.0;
@@ -75,11 +75,17 @@ vec3(0.0002, 0.0001, 0.0000), vec3(0.0002, 0.0001, 0.0000), vec3(0.0001, 0.0000,
 vec3(0.0001, 0.0000, 0.0000), vec3(0.0001, 0.0000, 0.0000), vec3(0.0000, 0.0000, 0.0000)
 );
 
+const mat3 rec2020Transform = mat3(
+1.7167, -0.6667, 0.0176,
+-0.3557, 1.6165, -0.0428,
+-0.2534, 0.0158, 0.9421
+);
+
 const float LightSpeed = 2.99792458e8;
 const float BoltzmannConstant = 1.3806504e-23;
 const float PlanckConstant = 6.62607015e-34;
-const float Min_cY = 3931191.541677483;         //1000K
-const float Max_cY = 9.15738182436502e+16;      //20000K
+const float Min_cY = 3931191.541677483;//1000K
+const float Max_cY = 9.15738182436502e+16;//20000K
 const float LogMin_cY = log(Min_cY);
 const float LogMax_cY = log(Max_cY);
 
@@ -187,6 +193,8 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
 {
     vec3 vel;
     float r = sqrt(dot(pos, pos));
+    float safeR = max(r, 1.0 + 1e-6);
+
     if (r < 1.0)
     {
         vel = vec3(0.0f);
@@ -194,21 +202,17 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
     }
 
     float velMag;
-    if (accretionDiskOrbit == 0)
-    {
-        velMag = -sqrt((G * M / (2.0 * (r - 1.0))));//non relativistic speed
-    }
-    else if (accretionDiskOrbit == 1)
-    {
-        velMag = -sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));//relativistic speed
-    }
+    float velMag0 = -sqrt((G * M / (2.0 * (safeR - 1.0))));
+    float velMag1 = -sqrt((G * M / r) * (1.0 - 3.0 * G * M / (safeR * c * c)));
+
+    velMag = accretionDiskOrbit == 0 ? velMag0 : velMag1;
 
     vec3 velDir = normalize(cross(vec3(0.0, 1.0, 0.0), pos));
     vel = velDir * velMag;
 
     vec3 beta_s = vel / c;
 
-    float gamma = 1.0 / sqrt(1.0 - dot(beta_s, beta_s));
+    float gamma = inversesqrt(1.0 - dot(beta_s, beta_s));
     float dopplerShift = gamma * (1.0 + dot(vel, normalize(viewDir)));
 
     return dopplerShift;
@@ -230,9 +234,12 @@ vec3 convertToRGB(float cX, float cY, float cZ, float normalized_cY) {
     float Y = 1.0;
     float Z = z / y;
 
-    float R = 1.7167 * X - 0.3557 * Y - 0.2534 * Z;
-    float G = -0.6667 * X + 1.6165 * Y + 0.0158 * Z;
-    float B = 0.0176 * X - 0.0428 * Y + 0.9421 * Z;
+    vec3 inputColor = vec3(X, Y, Z);
+    vec3 outputColor = rec2020Transform * inputColor;
+
+    float R = outputColor.r;
+    float G = outputColor.g;
+    float B = outputColor.b;
 
     R = max(R, 0.0);
     G = max(G, 0.0);
@@ -260,7 +267,7 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
     for (int i = 0; i < integrationNum; i++) {
         wavelength += 5.0;
         float lambda = wavelength * 1e-9;
-        float intensity = ((2.0 * PlanckConstant * pow(LightSpeed, 2.0)) / pow(lambda, 5.0)) /
+        float intensity = ((2.0 * PlanckConstant * pow(LightSpeed, 2)) / pow(lambda, 5)) /
         (exp((PlanckConstant * LightSpeed) / (lambda * BoltzmannConstant * adjustedTemperature)) - 1.0);
         vec3 matchingFunc = matchingFunctions[i];
         cX += intensity * matchingFunc.x * 5.0;
@@ -269,7 +276,7 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
     }
 
     float log_cY = log(cY);
-    float normalized_cY = (log_cY - LogMin_cY) / (LogMax_cY - LogMin_cY);   //normalize intensity
+    float normalized_cY = (log_cY - LogMin_cY) / (LogMax_cY - LogMin_cY);//normalize intensity
 
     return convertToRGB(cX, cY, cZ, normalized_cY);
 }
@@ -308,15 +315,16 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     float radius = sphericalCoord.x;
     float timeFactor = time;
 
+    float adjustedDiskSpeed = diskSpeed / sqrt(radius);
+    float timeAdjustment = timeFactor * adjustedDiskSpeed;
+
     for (int i = 0; i < diskNoiseLOD; ++i)
     {
         float noiseFactor = dot(i, i) * diskNoiseScale;
         noise *= 0.5 * snoise(sphericalCoord * noiseFactor) + 0.5;
 
-        float adjustedDiskSpeed = diskSpeed / sqrt(radius);
-        float timeAdjustment = timeFactor * adjustedDiskSpeed;
-
-        sphericalCoord.y += (i % 2 == 0) ? -timeAdjustment : timeAdjustment;
+        float sign = mix(1.0, -1.0, float(i % 2));
+        sphericalCoord.y += sign * timeAdjustment;
     }
 
     float redshift = calculateRedShift(pos);
@@ -328,13 +336,12 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     //doesn't work well much.
     //accretionTempMod *= shift;
 
-    vec3 cl = getBlackbodyColor(accretionTempMod, 1.0);
-    if (dopplerShift)
-    {
-        float dopplerRedshift = doppler * redshift;
-        cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
-        cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
-    }
+    vec3 cl; //color
+
+    float dopplerRedshift = mix(1.0, doppler * redshift, float(dopplerShift));
+
+    cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
+    cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
 
     vec4 dustColor = vec4(cl, 0.1) * 0.1;
 
@@ -457,7 +464,9 @@ vec4 rayMarch(vec3 pos, vec3 dir)
         //e_z_prime = normalize(cross(e_x_prime, dir));
         //e_y_prime = normalize(cross(e_z_prime, e_x_prime));
 
-        if (disk && sqrt(dot(pos, pos)) <= 9.0)
+        float diskCondition = float(disk) * step(length(pos), 9.0);
+
+        if (diskCondition > 0.0)
         {
             /*
             vec4 l_prime = vec4(e / (1.0 - u), -du, 0.0, u * u);
