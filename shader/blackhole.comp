@@ -1,6 +1,6 @@
 #version 430 core
 
-precision highp float;
+precision mediump float;
 
 layout (local_size_x = 16, local_size_y = 16) in;
 layout (rgba16f, binding = 0) uniform image2D outputImage;
@@ -85,7 +85,6 @@ const float LogMax_cY = log(Max_cY);
 
 const float TEMP_RANGE = 39000.0;//1000K~40000K
 
-uniform sampler2D blackbody;
 uniform samplerCube cubemap;
 
 //	Simplex 3D Noise
@@ -172,31 +171,22 @@ vec3 toSpherical(vec3 pos)
     return vec3(rho, theta, phi);
 }
 
-vec4 getBlackBodyColor(float temp)
-{
-    float x_coord = clamp((temp - 1000) / TEMP_RANGE, 0.0, 1.0);
-    vec2 texCoord = vec2(x_coord, 0.5);
-    vec4 color = texture2D(blackbody, texCoord);
-    return color;
-}
-
 float calculateRedShift(vec3 pos)
 {
     float dist = sqrt(dot(pos, pos));
-    if (dist < 1.0f)
-    {
-        return 0.0f;
-    }
-    float redshift = sqrt(1.0f - 1.0f/dist) - 1.0f;
+    float valid = step(1.0, dist);
 
-    redshift = (1 / (1.0 + redshift));
+    float redshift = sqrt(max(0.0, 1.0 - 1.0 / max(dist, 1.0))) - 1.0;
+    redshift = 1.0 / (1.0 + redshift);
+
+    redshift *= valid;
     return redshift;
 }
 
 float calculateDopplerEffect(vec3 pos, vec3 viewDir)
 {
     vec3 vel;
-    float r = length(pos);
+    float r = sqrt(dot(pos, pos));
     if (r < 1.0)
     {
         vel = vec3(0.0f);
@@ -226,7 +216,7 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
 
 float calculateRealisticTemperature(vec3 pos, float baseTemp)
 {
-    float radius = length(pos);
+    float radius = sqrt(dot(pos, pos));
     return baseTemp * pow(radius, -0.75);
 }
 
@@ -287,6 +277,10 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 {
     float lengthPos = length(pos / vec3(outerRadius, diskHeight, outerRadius));
+    if (lengthPos >= 1.0)
+    {
+        return;
+    }
     float density = max(0.0, 1.0 - lengthPos);
 
     if (density < minDensity)
@@ -296,7 +290,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 
     float absY = abs(pos.y);
     density *= exp(-pow(absY, diskDensityV) / (2.0f * diskHeight * diskHeight));
-    density *= smoothstep(innerRadius, innerRadius * 1.5f, length(pos));
+    density *= smoothstep(innerRadius, innerRadius * 1.5f, sqrt(dot(pos, pos)));
 
     if (density < minDensity)
     {
@@ -335,7 +329,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     //accretionTempMod *= shift;
 
     vec3 cl = getBlackbodyColor(accretionTempMod, 1.0);
-    if (dopplerShift == true)
+    if (dopplerShift)
     {
         float dopplerRedshift = doppler * redshift;
         cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
@@ -385,7 +379,7 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     vec4 color = vec4(0.0);
     float alpha = 1.0;
 
-    float u = 1.0 / length(pos);
+    float u = 1.0 / sqrt(dot(pos, pos));
     //float old_u;
     //float u0 = u;
 
@@ -463,7 +457,7 @@ vec4 rayMarch(vec3 pos, vec3 dir)
         //e_z_prime = normalize(cross(e_x_prime, dir));
         //e_y_prime = normalize(cross(e_z_prime, e_x_prime));
 
-        if (disk && length(pos) <= 9.0)
+        if (disk && sqrt(dot(pos, pos)) <= 9.0)
         {
             /*
             vec4 l_prime = vec4(e / (1.0 - u), -du, 0.0, u * u);

@@ -402,6 +402,7 @@ void Render::draw(std::unique_ptr<ComputeShader> acomputeShader,
         glBindVertexArray(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+
         bool horizontal = true, firstIteration = true;
         unsigned int amount = 10;
         blurShader->use();
