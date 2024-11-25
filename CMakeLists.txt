@@ -67,3 +67,7 @@ add_custom_command(TARGET BlackHoleRayTracer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${IMAGE_DIR} "$<TARGET_FILE_DIR:BlackHoleRayTracer>/image"
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${FONT_DIR} "$<TARGET_FILE_DIR:BlackHoleRayTracer>/fonts"
 )
+
+if (WIN32 AND MSVC)
+    set_target_properties(BlackHoleRayTracer PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")
+endif()
