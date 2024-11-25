@@ -1,6 +1,6 @@
 #version 430 core
 
-precision highp float;
+precision mediump float;
 
 layout (local_size_x = 16, local_size_y = 16) in;
 layout (rgba16f, binding = 0) uniform image2D outputImage;
@@ -21,16 +21,22 @@ uniform float accretionTemp;
 uniform vec3 cameraPos;
 uniform mat4 view;
 
-float diskHeight = 0.2;
-float diskDensityV = 2.0;
-float diskDensityH = 15.0 / 8.0;
-float diskNoiseScale = 1.0;
-float diskSpeed = 1.0;
+const float diskHeight = 0.2;
+const float diskDensityV = 2.0;
+const float diskDensityH = 15.0 / 8.0;
+const float diskNoiseScale = 1.0;
+const float diskSpeed = 1.0;
+
+const float innerRadius = 2.0;
+const float outerRadius = 9.0;
+
+const float minDensity = 0.001;
+const float densityScale = 16000.0;
 
 int diskNoiseLOD = 6;
 
 float steps = 0.01;
-int iteration = 768; //minimum: 768
+int iteration = 768;//minimum: 768
 
 const float G = 1.0;
 const float M = 1.0;
@@ -38,6 +44,7 @@ const float c = 1.0;
 
 const vec3 e_z = vec3(0.0, 0.0, 1.0);
 
+const int integrationNum = 80;
 const vec3 matchingFunctions[81] = vec3[](
 vec3(0.0014, 0.0000, 0.0065), vec3(0.0022, 0.0001, 0.0105), vec3(0.0042, 0.0001, 0.0201),
 vec3(0.0076, 0.0002, 0.0362), vec3(0.0143, 0.0004, 0.0679), vec3(0.0232, 0.0006, 0.1102),
@@ -68,9 +75,22 @@ vec3(0.0002, 0.0001, 0.0000), vec3(0.0002, 0.0001, 0.0000), vec3(0.0001, 0.0000,
 vec3(0.0001, 0.0000, 0.0000), vec3(0.0001, 0.0000, 0.0000), vec3(0.0000, 0.0000, 0.0000)
 );
 
+const mat3 rec2020Transform = mat3(
+1.7167, -0.6667, 0.0176,
+-0.3557, 1.6165, -0.0428,
+-0.2534, 0.0158, 0.9421
+);
+
+const float LightSpeed = 2.99792458e8;
+const float BoltzmannConstant = 1.3806504e-23;
+const float PlanckConstant = 6.62607015e-34;
+const float Min_cY = 3931191.541677483;//1000K
+const float Max_cY = 9.15738182436502e+16;//20000K
+const float LogMin_cY = log(Min_cY);
+const float LogMax_cY = log(Max_cY);
+
 const float TEMP_RANGE = 39000.0;//1000K~40000K
 
-uniform sampler2D blackbody;
 uniform samplerCube cubemap;
 
 //	Simplex 3D Noise
@@ -157,31 +177,24 @@ vec3 toSpherical(vec3 pos)
     return vec3(rho, theta, phi);
 }
 
-vec4 getBlackBodyColor(float temp)
-{
-    float x_coord = clamp((temp - 1000) / TEMP_RANGE, 0.0, 1.0);
-    vec2 texCoord = vec2(x_coord, 0.5);
-    vec4 color = texture2D(blackbody, texCoord);
-    return color;
-}
-
 float calculateRedShift(vec3 pos)
 {
     float dist = sqrt(dot(pos, pos));
-    if (dist < 1.0f)
-    {
-        return 0.0f;
-    }
-    float redshift = sqrt(1.0f - 1.0f/dist) - 1.0f;
+    float valid = step(1.0, dist);
 
-    redshift = (1 / (1.0 + redshift));
+    float redshift = sqrt(max(0.0, 1.0 - 1.0 / max(dist, 1.0))) - 1.0;
+    redshift = 1.0 / (1.0 + redshift);
+
+    redshift *= valid;
     return redshift;
 }
 
 float calculateDopplerEffect(vec3 pos, vec3 viewDir)
 {
     vec3 vel;
-    float r = length(pos);
+    float r = sqrt(dot(pos, pos));
+    float safeR = max(r, 1.0 + 1e-6);
+
     if (r < 1.0)
     {
         vel = vec3(0.0f);
@@ -189,21 +202,17 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
     }
 
     float velMag;
-    if (accretionDiskOrbit == 0)
-    {
-        velMag = -sqrt((G * M / (2.0 * (r - 1.0))));//non relativistic speed
-    }
-    else if (accretionDiskOrbit == 1)
-    {
-        velMag = -sqrt((G * M / r) * (1.0 - 3.0 * G * M / (r * c * c)));//relativistic speed
-    }
+    float velMag0 = -sqrt((G * M / (2.0 * (safeR - 1.0))));
+    float velMag1 = -sqrt((G * M / r) * (1.0 - 3.0 * G * M / (safeR * c * c)));
+
+    velMag = accretionDiskOrbit == 0 ? velMag0 : velMag1;
 
     vec3 velDir = normalize(cross(vec3(0.0, 1.0, 0.0), pos));
     vel = velDir * velMag;
 
     vec3 beta_s = vel / c;
 
-    float gamma = 1.0 / sqrt(1.0 - dot(beta_s, beta_s));
+    float gamma = inversesqrt(1.0 - dot(beta_s, beta_s));
     float dopplerShift = gamma * (1.0 + dot(vel, normalize(viewDir)));
 
     return dopplerShift;
@@ -211,49 +220,26 @@ float calculateDopplerEffect(vec3 pos, vec3 viewDir)
 
 float calculateRealisticTemperature(vec3 pos, float baseTemp)
 {
-    float radius = length(pos);
+    float radius = sqrt(dot(pos, pos));
     return baseTemp * pow(radius, -0.75);
 }
 
-vec3 getBlackbodyColor(float temperature, float redshiftFactor)
-{
-    const float LightSpeed = 2.99792458e8;
-    const float BoltzmannConstant = 1.3806504e-23;
-    const float PlanckConstant = 6.62607015e-34;
-    const float Min_cY = 3931191.541677483;         //1000K
-    const float Max_cY = 9.15738182436502e+16;      //20000K
-    const float LogMin_cY = log(Min_cY);
-    const float LogMax_cY = log(Max_cY);
-
-    float cX = 0.0;
-    float cY = 0.0;
-    float cZ = 0.0;
-    float wavelength = 380.0;
-    float adjustedTemperature = temperature / redshiftFactor;
-
-    for (int i = 0; i < 80; i++) {
-        wavelength += 5.0;
-        float lambda = wavelength * 1e-9;
-        float intensity = ((2.0 * PlanckConstant * pow(LightSpeed, 2.0)) / pow(lambda, 5.0)) /
-        (exp((PlanckConstant * LightSpeed) / (lambda * BoltzmannConstant * adjustedTemperature)) - 1.0);
-        vec3 matchingFunc = matchingFunctions[i];
-        cX += intensity * matchingFunc.x * 5.0;
-        cY += intensity * matchingFunc.y * 5.0;
-        cZ += intensity * matchingFunc.z * 5.0;
-    }
-
-    float x = cX / (cX + cY + cZ);
-    float y = cY / (cX + cY + cZ);
+vec3 convertToRGB(float cX, float cY, float cZ, float normalized_cY) {
+    float denom = cX + cY + cZ;
+    float x = denom > 0.0 ? cX / denom : 0.0;
+    float y = denom > 0.0 ? cY / denom : 0.0;
     float z = 1.0 - x - y;
 
+    float X = x / y;
     float Y = 1.0;
-    float X = x / y * Y;
-    float Z = z / y * Y;
+    float Z = z / y;
 
-    //CIE XYZ color space
-    float R = 1.7167 * X - 0.3557 * Y - 0.2534 * Z;
-    float G = -0.6667 * X + 1.6165 * Y + 0.0158 * Z;
-    float B = 0.0176 * X - 0.0428 * Y + 0.9421 * Z;
+    vec3 inputColor = vec3(X, Y, Z);
+    vec3 outputColor = rec2020Transform * inputColor;
+
+    float R = outputColor.r;
+    float G = outputColor.g;
+    float B = outputColor.b;
 
     R = max(R, 0.0);
     G = max(G, 0.0);
@@ -261,33 +247,59 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
 
     float maxVal = max(max(R, G), B);
     if (maxVal > 1.0) {
-        R /= maxVal;
-        G /= maxVal;
-        B /= maxVal;
+        float invMaxVal = 1.0 / maxVal;
+        R *= invMaxVal;
+        G *= invMaxVal;
+        B *= invMaxVal;
     }
-
-    float log_cY = log(cY);
-    float normalized_cY = (log_cY - LogMin_cY) / (LogMax_cY - LogMin_cY);   //normalize intensity
 
     return vec3(R, G, B) * normalized_cY;
 }
 
+vec3 getBlackbodyColor(float temperature, float redshiftFactor)
+{
+    float cX = 0.0;
+    float cY = 0.0;
+    float cZ = 0.0;
+    float wavelength = 380.0;
+    float adjustedTemperature = temperature / redshiftFactor;
+
+    for (int i = 0; i < integrationNum; i++) {
+        wavelength += 5.0;
+        float lambda = wavelength * 1e-9;
+        float intensity = ((2.0 * PlanckConstant * pow(LightSpeed, 2)) / pow(lambda, 5)) /
+        (exp((PlanckConstant * LightSpeed) / (lambda * BoltzmannConstant * adjustedTemperature)) - 1.0);
+        vec3 matchingFunc = matchingFunctions[i];
+        cX += intensity * matchingFunc.x * 5.0;
+        cY += intensity * matchingFunc.y * 5.0;
+        cZ += intensity * matchingFunc.z * 5.0;
+    }
+
+    float log_cY = log(cY);
+    float normalized_cY = (log_cY - LogMin_cY) / (LogMax_cY - LogMin_cY);//normalize intensity
+
+    return convertToRGB(cX, cY, cZ, normalized_cY);
+}
+
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 {
-    float innerRadius = 2.0;
-    float outerRadius = 9.0;
+    float lengthPos = length(pos / vec3(outerRadius, diskHeight, outerRadius));
+    if (lengthPos >= 1.0)
+    {
+        return;
+    }
+    float density = max(0.0, 1.0 - lengthPos);
 
-    float density = max(0.0, 1.0 - length(pos / vec3(outerRadius, diskHeight, outerRadius)));
-
-    if (density < 0.001)
+    if (density < minDensity)
     {
         return;
     }
 
-    density *= exp(-pow(abs(pos.y), diskDensityV) / (2 * diskHeight * diskHeight));
-    density *= smoothstep(innerRadius, innerRadius * 1.5, length(pos));
+    float absY = abs(pos.y);
+    density *= exp(-pow(absY, diskDensityV) / (2.0f * diskHeight * diskHeight));
+    density *= smoothstep(innerRadius, innerRadius * 1.5f, sqrt(dot(pos, pos)));
 
-    if (density < 0.001)
+    if (density < minDensity)
     {
         return;
     }
@@ -301,41 +313,35 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 
     float noise = 1.0;
     float radius = sphericalCoord.x;
+    float timeFactor = time;
+
+    float adjustedDiskSpeed = diskSpeed / sqrt(radius);
+    float timeAdjustment = timeFactor * adjustedDiskSpeed;
 
     for (int i = 0; i < diskNoiseLOD; ++i)
     {
-        noise *= 0.5 * snoise(sphericalCoord * pow(i, 2) * diskNoiseScale) + 0.5;
+        float noiseFactor = dot(i, i) * diskNoiseScale;
+        noise *= 0.5 * snoise(sphericalCoord * noiseFactor) + 0.5;
 
-        float adjustedDiskSpeed = diskSpeed / sqrt(radius);
-
-        if (i % 2 == 0)
-        {
-            sphericalCoord.y -= time * adjustedDiskSpeed;
-        }
-        else
-        {
-            sphericalCoord.y += time * adjustedDiskSpeed;
-        }
+        float sign = mix(1.0, -1.0, float(i % 2));
+        sphericalCoord.y += sign * timeAdjustment;
     }
 
     float redshift = calculateRedShift(pos);
     float doppler = calculateDopplerEffect(pos, viewDir);
 
-    float accretionTempMod = accretionTemp;
-
-    if (realisticTemperature)
-    accretionTempMod = calculateRealisticTemperature(pos, accretionTempMod);
+    float accretionTempMod = realisticTemperature ? calculateRealisticTemperature(pos, accretionTemp) : accretionTemp;
 
     //It's for calculating doppler shift with Schwartzschild metric
     //doesn't work well much.
     //accretionTempMod *= shift;
 
-    vec3 cl = getBlackbodyColor(accretionTempMod, 1.0);
-    if (dopplerShift == true)
-    {
-        cl = getBlackbodyColor(accretionTempMod, doppler * redshift);// Normalized Blackbody color
-        cl /= pow(doppler * redshift, 4);//Stefan-Boltzmann Law
-    }
+    vec3 cl; //color
+
+    float dopplerRedshift = mix(1.0, doppler * redshift, float(dopplerShift));
+
+    cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
+    cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
 
     vec4 dustColor = vec4(cl, 0.1) * 0.1;
 
@@ -380,18 +386,19 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     vec4 color = vec4(0.0);
     float alpha = 1.0;
 
-    float u = 1.0 / length(pos), old_u;
-    float u0 = u;
+    float u = 1.0 / sqrt(dot(pos, pos));
+    //float old_u;
+    //float u0 = u;
 
     vec3 normalVec = normalize(pos);
     vec3 tangentVec = normalize(cross(cross(normalVec, dir), normalVec));
 
     float du = -dot(normalVec, dir) / dot(dir, tangentVec) * u;
-    float du0 = du;
+    //float du0 = du;
 
     float phi = 0.0;
     float t = time;
-    float dt = 1.0;
+    float dt = steps;
 
     vec3 old_pos;
     //-------------------------------------------------------------------
@@ -420,7 +427,7 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     vec3 e_x_prime = normalize(pos);
     vec3 e_z_prime = normalize(cross(e_x_prime, dir));
     vec3 e_y_prime = normalize(cross(e_z_prime, e_x_prime));
-        
+
     float e = sqrt(du * du + u * u * (1.0 - u));
 
     vec4 l = vec4(e / (1.0 - u), -du, 0.0, u * u);
@@ -432,9 +439,9 @@ vec4 rayMarch(vec3 pos, vec3 dir)
 
     for (int i = 0; i < iteration; ++i)
     {
-        old_u = u;
+        //old_u = u;
 
-        float dt = steps;
+        //float dt = steps;
 
         if (integrationType == 0)
         verlet(u, du, dt);
@@ -457,7 +464,9 @@ vec4 rayMarch(vec3 pos, vec3 dir)
         //e_z_prime = normalize(cross(e_x_prime, dir));
         //e_y_prime = normalize(cross(e_z_prime, e_x_prime));
 
-        if (disk && length(pos) <= 9.0)
+        float diskCondition = float(disk) * step(length(pos), 9.0);
+
+        if (diskCondition > 0.0)
         {
             /*
             vec4 l_prime = vec4(e / (1.0 - u), -du, 0.0, u * u);
