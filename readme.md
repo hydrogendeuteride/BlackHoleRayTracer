@@ -55,7 +55,7 @@ mkdir build
 cd build
 
 cmake ..
-cmake -G "Visual Studio 16 2019" ..
+cmake -G "Visual Studio 17 2022" ..
 cmake --build . --config Release
 ```
 
@@ -66,6 +66,18 @@ cmake --build . --config Release
 - WASD to move(free camera mode only)
 - Shift/Control to move up/down(free camera mode only)
 - Q/E to roll camera(free camera mode only)
+
+## Performance
+### Test Conditions: 
+- Screen mode: full screen
+- OS: Windows 11 
+- Rendering resolution: 1920x1080
+
+| Processor       | GPU                     | FPS      |
+|-----------------|-------------------------|----------|
+| AMD Ryzen 6800HS| NVIDIA RTX 3050 Mobile  | 40~42FPS |
+| AMD Ryzen 6800HS| Radeon 680M             | 26~29FPS |
+
 
 ## References
 - OpenGL, GLFW, GLM, GLAD
