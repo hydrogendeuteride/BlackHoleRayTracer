@@ -22,7 +22,7 @@ public:
 
     glm::mat4 getViewMatrix() override
     {
-        return glm::transpose(glm::lookAt(-position, target, worldUp));
+        return glm::lookAt(position, target, worldUp);
     }
 
     void processMouseMovement(float xOffset, float yOffset) override
@@ -49,7 +49,7 @@ public:
 protected:
     void updateCameraVectors() override
     {
-        front = glm::normalize(position - target);
+        front = glm::normalize(target - position);
         right = glm::normalize(glm::cross(front, worldUp));
         up = glm::normalize(glm::cross(right, front));
     }

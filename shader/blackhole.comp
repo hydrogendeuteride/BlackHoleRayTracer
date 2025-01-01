@@ -338,7 +338,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 
     vec3 cl; //color
 
-    float dopplerRedshift = mix(1.0, doppler * redshift, float(dopplerShift));
+    float dopplerRedshift = 1. / mix(1.0, doppler * redshift, float(dopplerShift));
 
     cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
     cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
@@ -494,18 +494,20 @@ vec4 rayMarch(vec3 pos, vec3 dir)
 void main()
 {
     ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
-
     if (pixelCoord.x >= resolution.x || pixelCoord.y >= resolution.y)
-    {
-        return;
-    }
+    return;
 
     vec2 uv = (2.0 * vec2(pixelCoord) - resolution) / resolution.y;
-    vec3 dir = normalize(vec3(uv, 2.0));
-    vec3 pos = cameraPos;
 
-    dir = (view * vec4(dir, 0.0)).xyz;
-    vec4 fragColor = rayMarch(pos, dir);
+    vec3 dirCam = normalize(vec3(uv, -2.0));
+
+    mat4 invView = inverse(view);
+    vec3 dirWorld = (invView * vec4(dirCam, 0.0)).xyz;
+    dirWorld = normalize(dirWorld);
+
+    vec3 posWorld = (invView * vec4(0,0,0,1)).xyz;
+
+    vec4 fragColor = rayMarch(posWorld, dirWorld);
 
     imageStore(outputImage, pixelCoord, fragColor);
 }
