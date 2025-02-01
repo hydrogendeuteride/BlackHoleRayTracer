@@ -350,7 +350,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 
 float acceleration(float u)
 {
-    return -u * (1.0 - 1.5 * u * u);
+    return -u * (1.0 - 1.5 * u);
 }
 
 void verlet(inout float u, inout float du, float dt)
@@ -499,7 +499,7 @@ void main()
 
     vec2 uv = (2.0 * vec2(pixelCoord) - resolution) / resolution.y;
 
-    vec3 dirCam = normalize(vec3(uv, -2.0));
+    vec3 dirCam = normalize(vec3(uv, -1.0));
 
     mat4 invView = inverse(view);
     vec3 dirWorld = (invView * vec4(dirCam, 0.0)).xyz;
