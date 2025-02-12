@@ -281,6 +281,69 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
     return convertToRGB(cX, cY, cZ, normalized_cY);
 }
 
+vec4 computeEmitterFourVelocity(vec3 pos)   //non relativistic keplerian orbit
+{
+    float r = length(pos);
+    float v = 1.0 / sqrt(2 * r);
+    float gamma = 1.0 / sqrt(1.0 - v * v);
+    float Omega = 1.0 / (r * sqrt(r));
+
+    return vec4(gamma, 0.0, 0.0, gamma * Omega);
+}
+
+vec4 computeObserverFourVelocity(vec3 pos)
+{
+    float r = length(pos);
+    float ut = 1.0 / sqrt(1.0 - 1.0 / r);
+    return vec4(ut, 0.0, 0.0, 0.0);
+}
+
+vec4 computePhotonFourMomentum(vec3 pos, vec3 dir)
+{
+    //photon must satisfy the null condition in schwarzschild metric
+    //   -f (p^t)^2 + p_r^2/f + r² (p_θ² + sin²θ·p_φ²) = 0
+    float r = length(pos);
+    float theta = acos(clamp(pos.z / r, -1.0, 1.0));
+    float phi = atan(pos.y, pos.x);
+
+    vec3 er = normalize(pos);
+    vec3 ephi = normalize(vec3(-sin(phi), cos(phi), 0.0));
+    vec3 etheta = normalize(cross(ephi, er));
+
+    float pr = dot(dir, er);
+    float ptheta = dot(dir, etheta);
+    float pphi = dot(dir, ephi);
+
+    float f = 1.0 - 1.0 / r;
+    float spatial = (pr * pr) / f + r * r * (ptheta * ptheta + sin(theta) * sin(theta) * pphi * pphi);
+    float pt = sqrt(spatial / f);
+
+    return vec4(pt, pr, ptheta, pphi);
+}
+
+float lorentzDot(vec4 a, vec4 b, vec3 pos)
+{
+    float r = length(pos);
+    float theta = acos(clamp(pos.z / r, -1.0, 1.0));
+    float f = 1.0 - 1.0 / r;
+
+    return -f * a.x * b.x
+    + (1.0 / f) * a.y * b.y
+    + r * r * a.z * b.z
+    + r * r * sin(theta) * sin(theta) * a.w * b.w;
+}
+
+float computeGRRedshift(vec4 p, vec3 pos)
+{
+    vec4 u_em = computeEmitterFourVelocity(pos);
+    vec4 u_obs = computeObserverFourVelocity(cameraPos);
+
+    float num = -lorentzDot(p, u_em, pos);
+    float den = -lorentzDot(p, u_obs, cameraPos);
+
+    return num / den;
+}
+
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 {
     float lengthPos = length(pos / vec3(outerRadius, diskHeight, outerRadius));
@@ -327,18 +390,24 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
         sphericalCoord.y += sign * timeAdjustment;
     }
 
+    //GR calculation
+    //vec4 photonP = computePhotonFourMomentum(pos, viewDir);
+    //float grRedshift = 1. / computeGRRedshift(photonP, pos);
+
     float redshift = calculateRedShift(pos);
     float doppler = calculateDopplerEffect(pos, viewDir);
 
     float accretionTempMod = realisticTemperature ? calculateRealisticTemperature(pos, accretionTemp) : accretionTemp;
 
-    //It's for calculating doppler shift with Schwartzschild metric
-    //doesn't work well much.
-    //accretionTempMod *= shift;
-
     vec3 cl; //color
 
     float dopplerRedshift = 1. / mix(1.0, doppler * redshift, float(dopplerShift));
+
+    //GR calculation
+    //now calcualtion is satatic so rotating camera makes simulation fail
+    //should implement observer motion to make it correct
+//    cl = getBlackbodyColor(accretionTempMod, grRedshift);// Normalized Blackbody color
+//    cl /= pow(grRedshift, 4.0);//Stefan-Boltzmann Law
 
     cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
     cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
@@ -387,8 +456,6 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     float alpha = 1.0;
 
     float u = 1.0 / sqrt(dot(pos, pos));
-    //float old_u;
-    //float u0 = u;
 
     vec3 normalVec = normalize(pos);
     vec3 tangentVec = normalize(cross(cross(normalVec, dir), normalVec));
@@ -401,48 +468,9 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     float dt = steps;
 
     vec3 old_pos;
-    //-------------------------------------------------------------------
-    //It's for calculating doppler shift with Schwartzschild metric
-    //doesn't work well much.
-    /*
-    vec4 k_s = vec4(1.0 / sqrt(1.0 - u), 0.0, 0.0, 0.0);
-    //camera velocity 4 vector(now stationary)
-
-    vec3 sphericalPos = toSpherical(pos); // r, theta, phi
-    float sR = sphericalPos.x;
-    float sTheta = sphericalPos.y;
-    float sPhi = sphericalPos.z;
-
-    vec4 pos4 = vec4(0, sphericalPos);  //Schwartzschild coord camera pos
-
-    // cartesian coord camera vector
-    vec3 e_tau = vec3(1.0 / sqrt(1.0 - u), 0.0, 0.0);
-    vec3 e_w = sqrt(1.0 - u) * normalize(vec3(sin(sTheta) * cos(sPhi),
-                                sin(sTheta) * sin(sPhi), cos(sTheta)));
-    vec3 e_h = normalize(vec3(cos(sTheta) * cos(sPhi),
-                              cos(sTheta) * sin(sPhi), -sin(sTheta))) / sR;
-    vec3 e_d = normalize(vec3(-sin(sPhi), cos(sPhi), 0.0)) /
-                        (sR * sin(sTheta));
-
-    vec3 e_x_prime = normalize(pos);
-    vec3 e_z_prime = normalize(cross(e_x_prime, dir));
-    vec3 e_y_prime = normalize(cross(e_z_prime, e_x_prime));
-
-    float e = sqrt(du * du + u * u * (1.0 - u));
-
-    vec4 l = vec4(e / (1.0 - u), -du, 0.0, u * u);
-
-    float g_kl_recv = k_s.x * l.x * (1.0 - u) - k_s.y * l.y / (1.0 - u)
-                            - u * dot(e_tau, e_y_prime) * l.w / (u * u);
-    */
-    //-------------------------------------------------------------------
 
     for (int i = 0; i < iteration; ++i)
     {
-        //old_u = u;
-
-        //float dt = steps;
-
         if (integrationType == 0)
         verlet(u, du, dt);
         else
@@ -458,29 +486,10 @@ vec4 rayMarch(vec3 pos, vec3 dir)
         pos = (cos(phi) * normalVec + sin(phi) * tangentVec) / u;
         dir = pos - old_pos;
 
-        //It's for calculating doppler shift with Schwartzschild metric
-        //doesn't work well much.
-        //e_x_prime = normalize(pos);
-        //e_z_prime = normalize(cross(e_x_prime, dir));
-        //e_y_prime = normalize(cross(e_z_prime, e_x_prime));
-
         float diskCondition = float(disk) * step(length(pos), 9.0);
 
         if (diskCondition > 0.0)
         {
-            /*
-            vec4 l_prime = vec4(e / (1.0 - u), -du, 0.0, u * u);
-            vec4 k_prime = vec4(sqrt(2.0 / (2.0 - 3.0 * u)), 0.0, 0.0,
-                                sqrt(u * u * u / (2.0 - 3.0 * u)));
-            */
-            //It's for calculating doppler shift with Schwartzschild metric
-            //doesn't work well much.
-            //e = sqrt(du * du + u * u * (1.0 - u));
-            //float g_kl_source = e * sqrt(2.0 / (2.0 - 3.0 * u)) -
-            //                  u * sqrt(u / (2.0 - 3.0 * u)) * dot(e_z, e_z_prime);
-
-            //float shift = g_kl_recv / g_kl_source;
-
             diskRender(pos, color, alpha, dir);
         }
     }
