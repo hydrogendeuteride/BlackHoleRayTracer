@@ -1,6 +1,6 @@
 # BlackHole Ray Tracer
 
-![](image/BH3.gif)
+![](image/BH4.png)
 
 ## Description
 Simulation of Schwarzschild black hole using OpenGL ray marching.
