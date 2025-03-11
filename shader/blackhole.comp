@@ -344,6 +344,80 @@ float computeGRRedshift(vec4 p, vec3 pos)
     return num / den;
 }
 
+float calculateDiskTurbulence(vec3 pos, float time)
+{
+    float r = length(vec2(pos.x, pos.z));
+    float turbulence = 0.0;
+
+    vec3 sphericalCoord = toSpherical(pos);
+
+    float omega = sqrt(1 * 1 / (r * r * r));
+    float timeOffset = time * omega * diskSpeed;
+
+    float amplitude = 1.0;
+    float totalWeight = 0.0;
+
+    for (int i = 0; i < diskNoiseLOD; i++)
+    {
+        float layerSpeed = (1 % 2 == 0) ? 1.0 : -0.7;
+        float frequency = pow(2.0, float(i));
+
+        float radialfactor = mix(0.5, 2.0, smoothstep(outerRadius, innerRadius * 1.2, r));
+        float rotationOffset = timeOffset * layerSpeed;
+
+        float heightEffect = 1.0 - 0.5 * smoothstep(0.0, diskHeight, abs(pos.y));
+
+        vec3 turbCoord = vec3(
+        sphericalCoord.x * frequency * radialfactor,
+        sphericalCoord.y * rotationOffset * frequency,
+        sphericalCoord.z * frequency
+        );
+
+        float noiseValue = snoise(turbCoord * diskNoiseScale);
+
+        float weight = amplitude * heightEffect;
+        turbulence += noiseValue * weight;
+        totalWeight += weight;
+
+        amplitude *= 0.5;
+    }
+
+    turbulence = turbulence / totalWeight;
+    return turbulence * 0.5 + 0.5;
+}
+
+float getTurbulenceIntensity(float radius)
+{
+    float r_isco = 3.0;
+
+    if (radius < innerRadius)
+    {
+        return 0.3 * smoothstep(0.0, innerRadius, radius);
+    }
+    else if (radius < r_isco * 2.0)
+    {
+        return 1.0;
+    }
+    else
+    {
+        return mix(1.0, 0.2, smoothstep(r_isco * 2.0, outerRadius, radius));
+    }
+}
+
+float getTurbulenceTimeFactor(vec3 pos, float time)
+{
+    float r = length(vec2(pos.x, pos.z));
+    float phi = atan(pos.z, pos.x);
+
+    float slowFactor = sin(time * 0.1 + phi) * 0.5 + 0.5;
+
+    float mediumFactor = sin(time * 0.3 + r * 0.5) * 0.5 + 0.5;
+
+    float innerWeight = smoothstep(outerRadius, innerRadius * 2.0, r);
+
+    return mix(mediumFactor, slowFactor, 1.0 - innerWeight);
+}
+
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 {
     float lengthPos = length(pos / vec3(outerRadius, diskHeight, outerRadius));
@@ -367,28 +441,16 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
         return;
     }
 
-    vec3 sphericalCoord =  toSpherical(pos);
+    float r = length(vec2(pos.x, pos.z));
+    float turbulencePattern = calculateDiskTurbulence(pos, time);
+    float turbulenceStrength = getTurbulenceIntensity(r);
+    float timeVariation = getTurbulenceTimeFactor(pos, time);
 
-    sphericalCoord.y *= 2.0;
+    float finalTurbulence = mix(0.7, 1.3, turbulencePattern * turbulenceStrength * timeVariation);
 
-    density *= 1.0 / pow(sphericalCoord.x, diskDensityH);
-    density *= 16000.0;
+    density *= finalTurbulence;
 
-    float noise = 1.0;
-    float radius = sphericalCoord.x;
-    float timeFactor = time;
-
-    float adjustedDiskSpeed = diskSpeed / sqrt(radius);
-    float timeAdjustment = timeFactor * adjustedDiskSpeed;
-
-    for (int i = 0; i < diskNoiseLOD; ++i)
-    {
-        float noiseFactor = dot(i, i) * diskNoiseScale;
-        noise *= 0.5 * snoise(sphericalCoord * noiseFactor) + 0.5;
-
-        float sign = mix(1.0, -1.0, float(i % 2));
-        sphericalCoord.y += sign * timeAdjustment;
-    }
+    float tempVariation = mix(0.8, 1.2, turbulencePattern * turbulenceStrength);
 
     //GR calculation
     //vec4 photonP = computePhotonFourMomentum(pos, viewDir);
@@ -414,7 +476,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 
     vec4 dustColor = vec4(cl, 0.1) * 0.1;
 
-    color += density * dustColor * alpha * abs(noise);
+    color += density * dustColor * alpha *finalTurbulence;
 }
 
 float acceleration(float u)
