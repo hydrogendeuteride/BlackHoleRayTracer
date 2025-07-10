@@ -468,8 +468,8 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
     //GR calculation
     //now calcualtion is satatic so rotating camera makes simulation fail
     //should implement observer motion to make it correct
-//    cl = getBlackbodyColor(accretionTempMod, grRedshift);// Normalized Blackbody color
-//    cl /= pow(grRedshift, 4.0);//Stefan-Boltzmann Law
+    //    cl = getBlackbodyColor(accretionTempMod, grRedshift);// Normalized Blackbody color
+    //    cl /= pow(grRedshift, 4.0);//Stefan-Boltzmann Law
 
     cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
     cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
