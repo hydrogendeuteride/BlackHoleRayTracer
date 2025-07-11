@@ -1,7 +1,5 @@
 #version 430 core
 
-precision mediump float;
-
 layout (local_size_x = 16, local_size_y = 16) in;
 layout (rgba16f, binding = 0) uniform image2D outputImage;
 
@@ -92,6 +90,9 @@ const float LogMax_cY = log(Max_cY);
 const float TEMP_RANGE = 39000.0;//1000K~40000K
 
 uniform samplerCube cubemap;
+
+#define SCHW_M 1.0
+float fSchwarz(float r)                { return 1.0 - SCHW_M / r; }
 
 //	Simplex 3D Noise
 //	by Ian McEwan, Ashima Arts
@@ -281,7 +282,7 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
     return convertToRGB(cX, cY, cZ, normalized_cY);
 }
 
-vec4 computeEmitterFourVelocity(vec3 pos)   //non relativistic keplerian orbit
+vec4 computeEmitterFourVelocity(vec3 pos)//non relativistic keplerian orbit
 {
     float r = length(pos);
     float v = 1.0 / sqrt(2 * r);
@@ -291,7 +292,7 @@ vec4 computeEmitterFourVelocity(vec3 pos)   //non relativistic keplerian orbit
     return vec4(gamma, 0.0, 0.0, gamma * Omega);
 }
 
-vec4 computeObserverFourVelocity(vec3 pos)
+vec4 computeObserverFourVelocity(vec3 pos) //assume observer is stop(for free camera movement)
 {
     float r = length(pos);
     float ut = 1.0 / sqrt(1.0 - 1.0 / r);
@@ -418,6 +419,104 @@ float getTurbulenceTimeFactor(vec3 pos, float time)
     return mix(mediumFactor, slowFactor, 1.0 - innerWeight);
 }
 
+void metric(float r, float th, out mat4 g, out mat4 gInv)
+{
+    float f = fSchwarz(r);
+    g = mat4(-f, 0, 0, 0,
+    0, 1.0 / f, 0, 0,
+    0, 0, r * r, 0,
+    0, 0, 0, r * r * sin(th) * sin(th));
+
+    gInv = mat4(-1.0 / f, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, 1.0 / (r * r), 0,
+    0, 0, 0, 1.0 / (r * r * sin(th) * sin(th)));
+}
+
+void metricDr(float r, out mat4 dg)
+{
+    float f = fSchwarz(r);
+    float df = SCHW_M / (r * r);
+
+    dg = mat4(df, 0, 0, 0,
+    0, df / (f * f), 0, 0,
+    0, 0, 2.0 * r, 0,
+    0, 0, 0, 2.0 * r);
+}
+
+struct GeoState {
+    vec4 x;
+    vec4 p;
+};
+
+void geoDeriv(in GeoState s, out GeoState d)
+{
+    float r = s.x.y;
+    float th = s.x.z;
+
+    mat4 g, gInv; metric(r, th, g, gInv);
+
+    d.x = gInv * s.p;
+
+    mat4 dg_dr; metricDr(r, dg_dr);
+    float sum = 0.0;
+    for (int a = 0; a < 4; ++a)
+    for (int b = 0; b < 4; ++b)
+    sum += dg_dr[a][b] * s.p[a] * s.p[b];
+
+    d.p = vec4(0.0);
+    d.p.y = -0.5 * sum;
+}
+
+void geodesicRK4(inout GeoState s, float h)
+{
+    GeoState k1, k2, k3, k4, tmp;
+
+    geoDeriv(s, k1);
+
+    tmp.x = s.x + 0.5 * h * k1.x;
+    tmp.p = s.p + 0.5 * h * k1.p;
+    geoDeriv(tmp, k2);
+
+    tmp.x = s.x + 0.5 * h * k2.x;
+    tmp.p = s.p + 0.5 * h * k2.p;
+    geoDeriv(tmp, k3);
+
+    tmp.x = s.x + h * k3.x;
+    tmp.p = s.p + h * k3.p;
+    geoDeriv(tmp, k4);
+
+    s.x += h / 6.0 * (k1.x + 2.0 * k2.x + 2.0 * k3.x + k4.x);
+    s.p += h / 6.0 * (k1.p + 2.0 * k2.p + 2.0 * k3.p + k4.p);
+}
+
+vec4 spatialToCovariantMom(vec3 dir, vec3 pos)
+{
+    float r  = length(pos);
+    float th = acos(clamp(pos.y / r, -1.0, 1.0));
+    float f  = fSchwarz(r);
+
+    vec3 e_r     = normalize(pos);
+    vec3 e_phi   = normalize(vec3(-pos.z, 0.0, pos.x));
+    vec3 e_theta = normalize(cross(e_phi, e_r));
+
+    float k_r   = dot(dir, e_r);
+    float k_th  = dot(dir, e_theta);
+    float k_phi = dot(dir, e_phi) / (r * sin(th));
+
+    float kt = sqrt(k_r * k_r / f + r * r * (k_th * k_th + k_phi * k_phi * sin(th) * sin(th)));
+
+    return vec4(-kt, k_r, k_th, k_phi);
+}
+
+float gFactor(vec3 pos, vec3 dir)
+{
+    vec4 p      = spatialToCovariantMom(dir, pos);
+    float g_num = -lorentzDot(p, computeEmitterFourVelocity(pos), pos);
+    float g_den = -lorentzDot(p, computeObserverFourVelocity(cameraPos), cameraPos);
+    return g_num / g_den;
+}
+
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 {
     float lengthPos = length(pos / vec3(outerRadius, diskHeight, outerRadius));
@@ -452,64 +551,22 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 
     float tempVariation = mix(0.8, 1.2, turbulencePattern * turbulenceStrength);
 
-    //GR calculation
-    //vec4 photonP = computePhotonFourMomentum(pos, viewDir);
-    //float grRedshift = 1. / computeGRRedshift(photonP, pos);
-
     float redshift = calculateRedShift(pos);
     float doppler = calculateDopplerEffect(pos, viewDir);
 
     float accretionTempMod = realisticTemperature ? calculateRealisticTemperature(pos, accretionTemp) : accretionTemp;
 
-    vec3 cl; //color
+    vec3 cl;//color
 
     float dopplerRedshift = 1. / mix(1.0, doppler * redshift, float(dopplerShift));
 
-    //GR calculation
-    //now calcualtion is satatic so rotating camera makes simulation fail
-    //should implement observer motion to make it correct
-    //    cl = getBlackbodyColor(accretionTempMod, grRedshift);// Normalized Blackbody color
-    //    cl /= pow(grRedshift, 4.0);//Stefan-Boltzmann Law
-
-    cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
+    float g = gFactor(pos, viewDir);
+    cl = getBlackbodyColor(accretionTempMod, g);// Normalized Blackbody color
     cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
 
     vec4 dustColor = vec4(cl, 0.1) * 0.1;
 
     color += density * dustColor * alpha *finalTurbulence;
-}
-
-float acceleration(float u)
-{
-    return -u * (1.0 - 1.5 * u);
-}
-
-void verlet(inout float u, inout float du, float dt)
-{
-    float ddu = acceleration(u);
-    float u_new = u + du * dt + 0.5 * ddu * dt * dt;
-    float ddu_new = acceleration(u_new);
-
-    du += 0.5 * (ddu + ddu_new) * dt;
-    u = u_new;
-}
-
-void rk4(inout float u, inout float du, float dt)
-{
-    float k1_u = du;
-    float k1_du = acceleration(u);
-
-    float k2_u = du + 0.5 * dt * k1_du;
-    float k2_du = acceleration(u + 0.5 * dt * k1_u);
-
-    float k3_u = du + 0.5 * dt * k2_du;
-    float k3_du = acceleration(u + 0.5 * dt * k2_u);
-
-    float k4_u = du + dt * k3_du;
-    float k4_du = acceleration(u + dt * k3_u);
-
-    u += (dt / 6.0) * (k1_u + 2.0 * k2_u + 2.0 * k3_u + k4_u);
-    du += (dt / 6.0) * (k1_du + 2.0 * k2_du + 2.0 * k3_du + k4_du);
 }
 
 vec4 rayMarch(vec3 pos, vec3 dir)
@@ -523,7 +580,6 @@ vec4 rayMarch(vec3 pos, vec3 dir)
     vec3 tangentVec = normalize(cross(cross(normalVec, dir), normalVec));
 
     float du = -dot(normalVec, dir) / dot(dir, tangentVec) * u;
-    //float du0 = du;
 
     float phi = 0.0;
     float t = time;
@@ -531,30 +587,44 @@ vec4 rayMarch(vec3 pos, vec3 dir)
 
     vec3 old_pos;
 
-    for (int i = 0; i < iteration; ++i)
+    GeoState st;
+    st.x = vec4(0.0, length(pos), 1.570796, atan(pos.z, pos.x));
+    st.p = spatialToCovariantMom(dir, pos);
+
+    for (int i = 0; i < iteration && st.x.y > innerRadius; ++i)
     {
-        if (integrationType == 0)
-        verlet(u, du, dt);
-        else
-        rk4(u, du, dt);
+        geodesicRK4(st, steps);
 
-        if (u < 0.0)
-        break;
-
-        phi += steps;
-
-        old_pos = pos;
-
-        pos = (cos(phi) * normalVec + sin(phi) * tangentVec) / u;
-        dir = pos - old_pos;
-
-        float diskCondition = float(disk) * step(length(pos), 9.0);
-
-        if (diskCondition > 0.0)
-        {
-            diskRender(pos, color, alpha, dir);
-        }
+        vec3 p3 = normalize(vec3(st.p.y, st.p.z, st.p.w));
+        if (disk && abs(st.x.z - 1.570796) < 1e-3 && st.x.y < outerRadius)
+        diskRender(vec3(st.x.y * cos(st.x.w), 0.0, st.x.y * sin(st.x.w)),
+        color, alpha, p3);
     }
+
+    //    for (int i = 0; i < iteration; ++i)
+    //    {
+    //        if (integrationType == 0)
+    //        verlet(u, du, dt);
+    //        else
+    //        rk4(u, du, dt);
+    //
+    //        if (u < 0.0)
+    //        break;
+    //
+    //        phi += steps;
+    //
+    //        old_pos = pos;
+    //
+    //        pos = (cos(phi) * normalVec + sin(phi) * tangentVec) / u;
+    //        dir = pos - old_pos;
+    //
+    //        float diskCondition = float(disk) * step(length(pos), 9.0);
+    //
+    //        if (diskCondition > 0.0)
+    //        {
+    //            diskRender(pos, color, alpha, dir);
+    //        }
+    //    }
 
     vec4 skyColor = texture(cubemap, normalize(dir));
     color += skyColor;
@@ -576,7 +646,7 @@ void main()
     vec3 dirWorld = (invView * vec4(dirCam, 0.0)).xyz;
     dirWorld = normalize(dirWorld);
 
-    vec3 posWorld = (invView * vec4(0,0,0,1)).xyz;
+    vec3 posWorld = (invView * vec4(0, 0, 0, 1)).xyz;
 
     vec4 fragColor = rayMarch(posWorld, dirWorld);
 
