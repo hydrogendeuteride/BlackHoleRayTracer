@@ -27,6 +27,7 @@ const float diskSpeed = 1.0;
 
 const float innerRadius = 2.0;
 const float outerRadius = 9.0;
+const float escapeRadius = 100.0;
 
 const float minDensity = 0.001;
 const float densityScale = 16000.0;
@@ -34,7 +35,7 @@ const float densityScale = 16000.0;
 int diskNoiseLOD = 6;
 
 float steps = 0.01;
-int iteration = 768;//minimum: 768
+int iteration = 4096;//minimum: 768
 
 const float G = 1.0;
 const float M = 1.0;
@@ -292,7 +293,7 @@ vec4 computeEmitterFourVelocity(vec3 pos)//non relativistic keplerian orbit
     return vec4(gamma, 0.0, 0.0, gamma * Omega);
 }
 
-vec4 computeObserverFourVelocity(vec3 pos) //assume observer is stop(for free camera movement)
+vec4 computeObserverFourVelocity(vec3 pos)//assume observer is stop(for free camera movement)
 {
     float r = length(pos);
     float ut = 1.0 / sqrt(1.0 - 1.0 / r);
@@ -419,105 +420,86 @@ float getTurbulenceTimeFactor(vec3 pos, float time)
     return mix(mediumFactor, slowFactor, 1.0 - innerWeight);
 }
 
-void metric(float r, float th, out mat4 g, out mat4 gInv)
+vec2 conservedEL(vec3 pos, vec3 dir)
 {
+    float r = length(pos);
+    vec3  e_r   = pos / r;
+    vec3  e_phi = normalize(vec3(-pos.z, 0.0, pos.x));
+
+    float k_r      = dot(dir, e_r);
+    float k_phi    = dot(dir, e_phi) / r;
+
     float f = fSchwarz(r);
-    g = mat4(-f, 0, 0, 0,
-    0, 1.0 / f, 0, 0,
-    0, 0, r * r, 0,
-    0, 0, 0, r * r * sin(th) * sin(th));
+    float k_t = sqrt((k_r*k_r)/(f*f) + r*r * k_phi*k_phi / f);
 
-    gInv = mat4(-1.0 / f, 0, 0, 0,
-    0, f, 0, 0,
-    0, 0, 1.0 / (r * r), 0,
-    0, 0, 0, 1.0 / (r * r * sin(th) * sin(th)));
+    float E = f * k_t;
+    float L = r * dot(dir, e_phi);
+
+    return vec2(E, L);
 }
 
-void metricDr(float r, out mat4 dg)
+vec3 geoRHS(float r, float phi, vec2 EL, int sign)
 {
+    float E = EL.x, L = EL.y;
     float f = fSchwarz(r);
-    float df = SCHW_M / (r * r);
 
-    dg = mat4(df, 0, 0, 0,
-    0, df / (f * f), 0, 0,
-    0, 0, 2.0 * r, 0,
-    0, 0, 0, 2.0 * r);
+    float dt   = E / f;
+    float dphi = L / (r*r);
+
+    float dr_sq = max(0.0, E*E - f * L*L / (r*r));
+    float dr   = sign * sqrt(dr_sq);
+
+    return vec3(dt, dr, dphi);
 }
 
-struct GeoState {
-    vec4 x;
-    vec4 p;
-};
-
-void geoDeriv(in GeoState s, out GeoState d)
+void geoStep(inout float t, inout float r, inout float phi,
+vec2 EL, float h, int sign)
 {
-    float r = s.x.y;
-    float th = s.x.z;
+    // k1
+    vec3 k1 = geoRHS(r, phi, EL, sign);
 
-    mat4 g, gInv; metric(r, th, g, gInv);
+    // k2
+    vec3 k2 = geoRHS(r + 0.5*h*k1.y,
+    phi + 0.5*h*k1.z,
+    EL, sign);
 
-    d.x = gInv * s.p;
+    // k3
+    vec3 k3 = geoRHS(r + 0.5*h*k2.y,
+    phi + 0.5*h*k2.z,
+    EL, sign);
 
-    mat4 dg_dr; metricDr(r, dg_dr);
-    float sum = 0.0;
-    for (int a = 0; a < 4; ++a)
-    for (int b = 0; b < 4; ++b)
-    sum += dg_dr[a][b] * s.p[a] * s.p[b];
+    // k4
+    vec3 k4 = geoRHS(r + h*k3.y,
+    phi + h*k3.z,
+    EL, sign);
 
-    d.p = vec4(0.0);
-    d.p.y = -0.5 * sum;
+    t   += h * (k1.x + 2.0*k2.x + 2.0*k3.x + k4.x) / 6.0;
+    r   += h * (k1.y + 2.0*k2.y + 2.0*k3.y + k4.y) / 6.0;
+    phi += h * (k1.z + 2.0*k2.z + 2.0*k3.z + k4.z) / 6.0;
 }
 
-void geodesicRK4(inout GeoState s, float h)
+float gFactorEL(vec2 EL, float r_em, vec3 pos_em)
 {
-    GeoState k1, k2, k3, k4, tmp;
+    float E = EL.x, L = EL.y;
 
-    geoDeriv(s, k1);
+    float Omega = 1.0 / pow(r_em, 1.5);
+    float gamma = 1.0 / sqrt(1.0 - 3.0 / r_em);
+    float u_em_t   = gamma;
+    float u_em_phi = gamma * Omega;
 
-    tmp.x = s.x + 0.5 * h * k1.x;
-    tmp.p = s.p + 0.5 * h * k1.p;
-    geoDeriv(tmp, k2);
+    float r_obs = length(cameraPos);
+    float u_obs_t = 1.0 / sqrt(1.0 - 2.0 / r_obs);
 
-    tmp.x = s.x + 0.5 * h * k2.x;
-    tmp.p = s.p + 0.5 * h * k2.p;
-    geoDeriv(tmp, k3);
+    float p_t   = -E;
+    float p_phi =  L;
 
-    tmp.x = s.x + h * k3.x;
-    tmp.p = s.p + h * k3.p;
-    geoDeriv(tmp, k4);
+    float num = u_em_t * p_t + u_em_phi * p_phi;
+    float den = u_obs_t * p_t;
 
-    s.x += h / 6.0 * (k1.x + 2.0 * k2.x + 2.0 * k3.x + k4.x);
-    s.p += h / 6.0 * (k1.p + 2.0 * k2.p + 2.0 * k3.p + k4.p);
+    return num / den;
 }
 
-vec4 spatialToCovariantMom(vec3 dir, vec3 pos)
-{
-    float r  = length(pos);
-    float th = acos(clamp(pos.y / r, -1.0, 1.0));
-    float f  = fSchwarz(r);
-
-    vec3 e_r     = normalize(pos);
-    vec3 e_phi   = normalize(vec3(-pos.z, 0.0, pos.x));
-    vec3 e_theta = normalize(cross(e_phi, e_r));
-
-    float k_r   = dot(dir, e_r);
-    float k_th  = dot(dir, e_theta);
-    float k_phi = dot(dir, e_phi) / (r * sin(th));
-
-    float kt = sqrt(k_r * k_r / f + r * r * (k_th * k_th + k_phi * k_phi * sin(th) * sin(th)));
-
-    return vec4(-kt, k_r, k_th, k_phi);
-}
-
-float gFactor(vec3 pos, vec3 dir)
-{
-    vec4 p      = spatialToCovariantMom(dir, pos);
-    float g_num = -lorentzDot(p, computeEmitterFourVelocity(pos), pos);
-    float g_den = -lorentzDot(p, computeObserverFourVelocity(cameraPos), cameraPos);
-    return g_num / g_den;
-}
-
-void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
+void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir, vec2 EL)
 {
     float lengthPos = length(pos / vec3(outerRadius, diskHeight, outerRadius));
     if (lengthPos >= 1.0)
@@ -560,7 +542,7 @@ void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 
     float dopplerRedshift = 1. / mix(1.0, doppler * redshift, float(dopplerShift));
 
-    float g = gFactor(pos, viewDir);
+    float g = gFactorEL(EL, r, pos);
     cl = getBlackbodyColor(accretionTempMod, g);// Normalized Blackbody color
     cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
 
@@ -581,50 +563,33 @@ vec4 rayMarch(vec3 pos, vec3 dir)
 
     float du = -dot(normalVec, dir) / dot(dir, tangentVec) * u;
 
-    float phi = 0.0;
     float t = time;
     float dt = steps;
 
     vec3 old_pos;
 
-    GeoState st;
-    st.x = vec4(0.0, length(pos), 1.570796, atan(pos.z, pos.x));
-    st.p = spatialToCovariantMom(dir, pos);
+    vec2  EL  = conservedEL(pos, dir);
+    float r   = length(pos);
+    float phi = atan(pos.z, pos.x);
+    float tLambda  = 0.0;
 
-    for (int i = 0; i < iteration && st.x.y > innerRadius; ++i)
+    for (int i=0;i<iteration && r>innerRadius && r<escapeRadius;++i)
     {
-        geodesicRK4(st, steps);
+        int sign = dot(dir, pos) < 0.0 ? -1 : 1;
+        geoStep(tLambda, r, phi, EL, steps, sign);
 
-        vec3 p3 = normalize(vec3(st.p.y, st.p.z, st.p.w));
-        if (disk && abs(st.x.z - 1.570796) < 1e-3 && st.x.y < outerRadius)
-        diskRender(vec3(st.x.y * cos(st.x.w), 0.0, st.x.y * sin(st.x.w)),
-        color, alpha, p3);
+        vec3 rhs = geoRHS(r, phi, EL, sign);
+
+        vec3 e_r   = vec3(cos(phi), 0.0, sin(phi));
+        vec3 e_phi = vec3(-sin(phi), 0.0, cos(phi));
+
+        pos = e_r * r;
+
+        dir = normalize(rhs.y * e_r + r * rhs.z * e_phi);
+
+        if (disk && r < outerRadius)
+        diskRender(pos, color, alpha, dir, EL);
     }
-
-    //    for (int i = 0; i < iteration; ++i)
-    //    {
-    //        if (integrationType == 0)
-    //        verlet(u, du, dt);
-    //        else
-    //        rk4(u, du, dt);
-    //
-    //        if (u < 0.0)
-    //        break;
-    //
-    //        phi += steps;
-    //
-    //        old_pos = pos;
-    //
-    //        pos = (cos(phi) * normalVec + sin(phi) * tangentVec) / u;
-    //        dir = pos - old_pos;
-    //
-    //        float diskCondition = float(disk) * step(length(pos), 9.0);
-    //
-    //        if (diskCondition > 0.0)
-    //        {
-    //            diskRender(pos, color, alpha, dir);
-    //        }
-    //    }
 
     vec4 skyColor = texture(cubemap, normalize(dir));
     color += skyColor;
