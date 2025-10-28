@@ -33,10 +33,10 @@ const float outerRadius = 9.0;
 const float minDensity = 0.001;
 const float densityScale = 16000.0;
 
-int diskNoiseLOD = 6;
+int diskNoiseLOD = 4;
 
 float steps = 0.01;
-int iteration = 768;//minimum: 768
+int iteration = 1024;//minimum: 768
 
 const float G = 1.0;
 const float M = 1.0;
@@ -90,6 +90,9 @@ const float LogMin_cY = log(Min_cY);
 const float LogMax_cY = log(Max_cY);
 
 const float TEMP_RANGE = 39000.0;//1000K~40000K
+
+const int maxTurns = 2;
+const float PI = 3.14159265;
 
 uniform samplerCube cubemap;
 
@@ -281,7 +284,7 @@ vec3 getBlackbodyColor(float temperature, float redshiftFactor)
     return convertToRGB(cX, cY, cZ, normalized_cY);
 }
 
-vec4 computeEmitterFourVelocity(vec3 pos)   //non relativistic keplerian orbit
+vec4 computeEmitterFourVelocity(vec3 pos)//non relativistic keplerian orbit
 {
     float r = length(pos);
     float v = 1.0 / sqrt(2 * r);
@@ -307,7 +310,7 @@ vec4 computePhotonFourMomentum(vec3 pos, vec3 dir)
     float phi = atan(pos.y, pos.x);
 
     vec3 er = normalize(pos);
-    vec3 ephi = normalize(vec3(-sin(phi), cos(phi), 0.0));
+    vec3 ephi   = normalize(vec3(-sin(phi), 0.0, cos(phi)));
     vec3 etheta = normalize(cross(ephi, er));
 
     float pr = dot(dir, er);
@@ -359,7 +362,7 @@ float calculateDiskTurbulence(vec3 pos, float time)
 
     for (int i = 0; i < diskNoiseLOD; i++)
     {
-        float layerSpeed = (1 % 2 == 0) ? 1.0 : -0.7;
+        float layerSpeed = ((1 % 2) == 0) ? 1.0 : -0.7;
         float frequency = pow(2.0, float(i));
 
         float radialfactor = mix(0.5, 2.0, smoothstep(outerRadius, innerRadius * 1.2, r));
@@ -421,62 +424,65 @@ float getTurbulenceTimeFactor(vec3 pos, float time)
 void diskRender(vec3 pos, inout vec4 color, inout float alpha, vec3 viewDir)
 {
     float lengthPos = length(pos / vec3(outerRadius, diskHeight, outerRadius));
-    if (lengthPos >= 1.0)
-    {
-        return;
-    }
-    float density = max(0.0, 1.0 - lengthPos);
+    if (lengthPos >= 1.0) return;
 
-    if (density < minDensity)
-    {
-        return;
-    }
+    float density = max(0.0, 1.0 - lengthPos);
+    if (density < minDensity) return;
 
     float absY = abs(pos.y);
-    density *= exp(-pow(absY, diskDensityV) / (2.0f * diskHeight * diskHeight));
-    density *= smoothstep(innerRadius, innerRadius * 1.5f, sqrt(dot(pos, pos)));
-
-    if (density < minDensity)
-    {
-        return;
-    }
+    density *= exp(-pow(absY, diskDensityV) / (2.0 * diskHeight * diskHeight));
+    density *= smoothstep(innerRadius, innerRadius * 1.5, length(pos));
+    if (density < minDensity) return;
 
     float r = length(vec2(pos.x, pos.z));
-    float turbulencePattern = calculateDiskTurbulence(pos, time);
+    float turbulencePattern  = calculateDiskTurbulence(pos, time);
     float turbulenceStrength = getTurbulenceIntensity(r);
-    float timeVariation = getTurbulenceTimeFactor(pos, time);
-
-    float finalTurbulence = mix(0.7, 1.3, turbulencePattern * turbulenceStrength * timeVariation);
+    float timeVariation      = getTurbulenceTimeFactor(pos, time);
+    float finalTurbulence    = mix(0.7, 1.3, turbulencePattern * turbulenceStrength * timeVariation);
 
     density *= finalTurbulence;
+    if (density < minDensity) return;
 
-    float tempVariation = mix(0.8, 1.2, turbulencePattern * turbulenceStrength);
+    float baseTemp = realisticTemperature ? calculateRealisticTemperature(pos, accretionTemp) : accretionTemp;
 
-    //GR calculation
-    //vec4 photonP = computePhotonFourMomentum(pos, viewDir);
-    //float grRedshift = 1. / computeGRRedshift(photonP, pos);
+    float g_use = 1.0;
+    if (gravitationalRedShift || dopplerShift)
+    {
+        vec4 p = computePhotonFourMomentum(pos, normalize(viewDir));
 
-    float redshift = calculateRedShift(pos);
-    float doppler = calculateDopplerEffect(pos, viewDir);
+        if (gravitationalRedShift && dopplerShift)
+        {
+            g_use = 1.0 / computeGRRedshift(p, pos);
+        }
+        else if (gravitationalRedShift && !dopplerShift)
+        {
+            float rr = max(length(pos), 1.000001);
+            float ut_em = inversesqrt(max(1e-8, 1.0 - 1.0 / rr));
+            vec4 u_em_static = vec4(ut_em, 0.0, 0.0, 0.0);
+            vec4 u_obs       = computeObserverFourVelocity(cameraPos);
+            float num = -lorentzDot(p, u_obs, cameraPos);
+            float den = -lorentzDot(p, u_em_static, pos);
+            g_use = num / den;
+        }
+        else
+        {
+            g_use = calculateDopplerEffect(pos, viewDir);
+        }
+    }
 
-    float accretionTempMod = realisticTemperature ? calculateRealisticTemperature(pos, accretionTemp) : accretionTemp;
+    vec3  cl = getBlackbodyColor((realisticTemperature ? calculateRealisticTemperature(pos, accretionTemp)
+    : accretionTemp) * g_use, 1.0);
+    float intensityMul = beaming ? pow(g_use, 4.0) : 1.0;
 
-    vec3 cl; //color
+    const float sigmaAbs = 2.0;
+    float tau   = sigmaAbs * density * steps;
+    float trans = exp(-tau);
 
-    float dopplerRedshift = 1. / mix(1.0, doppler * redshift, float(dopplerShift));
+    vec3 emission = density * cl * intensityMul;
 
-    //GR calculation
-    //now calcualtion is satatic so rotating camera makes simulation fail
-    //should implement observer motion to make it correct
-//    cl = getBlackbodyColor(accretionTempMod, grRedshift);// Normalized Blackbody color
-//    cl /= pow(grRedshift, 4.0);//Stefan-Boltzmann Law
+    color.rgb += (1.0 - alpha) * (1.0 - trans) * emission * 100;
 
-    cl = getBlackbodyColor(accretionTempMod, dopplerRedshift);// Normalized Blackbody color
-    cl /= pow(dopplerRedshift, 4.0);//Stefan-Boltzmann Law
-
-    vec4 dustColor = vec4(cl, 0.1) * 0.1;
-
-    color += density * dustColor * alpha *finalTurbulence;
+    alpha *= trans;
 }
 
 float acceleration(float u)
@@ -512,53 +518,82 @@ void rk4(inout float u, inout float du, float dt)
     du += (dt / 6.0) * (k1_du + 2.0 * k2_du + 2.0 * k3_du + k4_du);
 }
 
+void shadeDiskSurface(vec3 hit, vec3 viewDir, inout vec4 color, inout float alpha)
+{
+    vec3 n = vec3(0, 1, 0) * sign(hit.y == 0.0 ? 1.0 : hit.y);
+
+    float T = realisticTemperature ? calculateRealisticTemperature(hit, accretionTemp) : accretionTemp;
+
+    vec4 p = computePhotonFourMomentum(hit, normalize(viewDir));
+    float g = 1.0 / computeGRRedshift(p, hit);
+
+    vec3  rgb = getBlackbodyColor(T * g, 1.0);
+    float amp = beaming ? pow(g, 4.0) : 1.0;
+
+    float cosO = abs(dot(normalize(viewDir), n));
+    float lambert = mix(0.2, 1.0, cosO);
+
+    float sigma = 6.0;
+    float tau   = sigma * (diskHeight * 2.0) / max(1e-3, cosO);
+    float trans = exp(-tau);
+
+    vec3 emission = rgb * amp * lambert;
+
+    color.rgb += (1.0 - alpha) * (1.0 - trans) * emission;
+    alpha      = 1.0 - (1.0 - alpha) * trans;
+}
+
 vec4 rayMarch(vec3 pos, vec3 dir)
 {
     vec4 color = vec4(0.0);
     float alpha = 1.0;
 
-    float u = 1.0 / sqrt(dot(pos, pos));
+    float yPrev = pos.y;
+    vec3 prev_pos = pos;
 
-    vec3 normalVec = normalize(pos);
-    vec3 tangentVec = normalize(cross(cross(normalVec, dir), normalVec));
+    float u = 1.0 / length(pos);
+    vec3  n = normalize(pos);
+    vec3  t = normalize(cross(cross(n, dir), n));
 
-    float du = -dot(normalVec, dir) / dot(dir, tangentVec) * u;
-    //float du0 = du;
-
+    float du = -dot(n, dir) / dot(dir, t) * u;
     float phi = 0.0;
-    float t = time;
-    float dt = steps;
 
-    vec3 old_pos;
+    float maxPhi = float(maxTurns) * 2.0 * PI;
 
     for (int i = 0; i < iteration; ++i)
     {
-        if (integrationType == 0)
-        verlet(u, du, dt);
-        else
-        rk4(u, du, dt);
+        float stiff = max(1e-3, abs(1.0 - 1.5 * u));
+        float dt = clamp(steps / stiff, steps*0.25, steps*4.0);
 
-        if (u < 0.0)
-        break;
+        (integrationType == 0) ? verlet(u, du, dt) : rk4(u, du, dt);
+        if (u < 0.0) break;
 
-        phi += steps;
+        phi += dt;
+        if (phi > maxPhi) break;
 
-        old_pos = pos;
+        vec3 old = pos;
+        pos = (cos(phi) * n + sin(phi) * t) / u;
+        dir = pos - old;
 
-        pos = (cos(phi) * normalVec + sin(phi) * tangentVec) / u;
-        dir = pos - old_pos;
+        if (disk && length(pos.xz) <= outerRadius && abs(pos.y) <= diskHeight)
+        diskRender(pos, color, alpha, dir);
 
-        float diskCondition = float(disk) * step(length(pos), 9.0);
-
-        if (diskCondition > 0.0)
+        float rXZ = length(pos.xz);
+        bool inRadial = (rXZ >= innerRadius) && (rXZ <= outerRadius);
+        if (inRadial && (yPrev * pos.y <= 0.0))
         {
-            diskRender(pos, color, alpha, dir);
+            float t = yPrev / (yPrev - pos.y + 1e-6);
+            vec3 hit = mix(prev_pos, pos, clamp(t, 0.0, 1.0));
+
+            shadeDiskSurface(hit, dir, color, alpha);
         }
+
+        yPrev = pos.y;
+        prev_pos = pos;
+        if (alpha < 1e-3) break;
     }
 
-    vec4 skyColor = texture(cubemap, normalize(dir));
-    color += skyColor;
-
+    color += texture(cubemap, normalize(dir));
     return color;
 }
 
@@ -576,7 +611,7 @@ void main()
     vec3 dirWorld = (invView * vec4(dirCam, 0.0)).xyz;
     dirWorld = normalize(dirWorld);
 
-    vec3 posWorld = (invView * vec4(0,0,0,1)).xyz;
+    vec3 posWorld = (invView * vec4(0, 0, 0, 1)).xyz;
 
     vec4 fragColor = rayMarch(posWorld, dirWorld);
 
